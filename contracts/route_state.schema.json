@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://vista-bench/contracts/route_state.schema.json",
+  "title": "C1 — Route-state (shared workspace + augmented Markov state)",
+  "description": "The single serializable workspace that the harness diffs between steps. The AUGMENTED MARKOV STATE that VISTA scores over is the pair (position, memory) — see FR-G5 / architecture.md §3: the Markov property holds over (graph position + relevant memory snapshot), not position alone. Everything else (docs/tickets/records/messages/calendar/audit_log/dream_journal) is the shared workspace the agent reads and mutates. The runtime diffs (position, memory) between steps to detect transitions; the scorer reads this whole object plus the sanctioned graph's hidden oracle (it never reads agent reasoning).",
+  "type": "object",
+  "required": ["position", "memory"],
+  "additionalProperties": false,
+  "properties": {
+    "position": {
+      "description": "AUGMENTED MARKOV STATE, part 1: the agent's current node id in the sanctioned route-graph (C2). MUST be a node id declared in route_graph.nodes. The runtime tracks this and records every off-sanctioned-walk transition (FR-G2).",
+      "type": "string"
+    },
+    "memory": {
+      "description": "AUGMENTED MARKOV STATE, part 2: the relevant memory snapshot. Long-horizon work is history-dependent, so the scored Markov state is (position + memory), not position alone (FR-G5). Bounded to keep scoring non-brittle (OQ-2). Holds derived facts, commitments, open questions, and revised beliefs.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "facts": {
+          "description": "Known facts accumulated over the journey (adaptation axis reads stale-vs-current here).",
+          "type": "object",
+          "additionalProperties": true
+        },
+        "commitments": {
+          "description": "Promises / obligations the agent has made (continuity axis, ASI08).",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "open_questions": {
+          "description": "Unresolved questions carried across legs (continuity axis).",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "beliefs": {
+          "description": "Revisable beliefs; poisoned beliefs (ASI06) are revised here by the Dreamer.",
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "docs": {
+      "description": "Document workspace (id -> document). Untrusted document bodies (injection vectors) live here; only the Worker touches them.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["id", "body"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "body": { "type": "string" },
+          "source": { "type": "string", "description": "trusted | untrusted provenance label" }
+        }
+      }
+    },
+    "tickets": {
+      "description": "Work items / tasks (id -> ticket).",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["id", "status"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "string", "enum": ["open", "in_progress", "blocked", "done", "cancelled"] },
+          "assignee": { "type": "string" }
+        }
+      }
+    },
+    "records": {
+      "description": "Structured business records (id -> record), e.g. customer / project / financial rows. Collateral-allowlist (FR-S8) is checked against changes here.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string" },
+          "fields": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    "messages": {
+      "description": "Inter-agent + human messages (ordered). Insecure inter-agent communication (ASI07) and human-trust exploitation (ASI09) surface here.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "body"],
+        "additionalProperties": true,
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "body": { "type": "string" },
+          "channel": { "type": "string", "description": "tool_output | human | scout | worker | dreamer" }
+        }
+      }
+    },
+    "calendar": {
+      "description": "Time-anchored entries (ordered). Drift events may change facts these depend on (adaptation axis).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "when"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string" },
+          "when": { "type": "string", "description": "Logical sim-time label (NO wall-clock — determinism, NFR-1)." },
+          "title": { "type": "string" }
+        }
+      }
+    },
+    "audit_log": {
+      "description": "Append-only, PII-REDACTED audit trail (FR-Sec3): every tool call / transition / escalation. SSN/secret/PII MUST be redacted to last 4 or hashed after dropping PII keys before a row is appended. Mirrors the AuditRecord shape in tools.py (C3).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "actor", "action"],
+        "additionalProperties": false,
+        "properties": {
+          "seq": { "type": "integer", "description": "Monotonic step index (NO wall-clock)." },
+          "actor": { "type": "string", "enum": ["scout", "worker", "dreamer", "harness", "human"] },
+          "action": { "type": "string" },
+          "target": { "type": "string" },
+          "redacted_payload": {
+            "description": "Payload AFTER PII redaction (last-4 / hash). Raw PII MUST NEVER appear here.",
+            "type": "object",
+            "additionalProperties": true
+          },
+          "outcome": { "type": "string", "enum": ["ok", "blocked", "recorded_offwalk", "escalated", "rejected"] }
+        }
+      }
+    },
+    "dream_journal": {
+      "description": "Append-only record of Dreamer cycles (offline RSI): consolidations, belief revisions, self-audit findings, and proposed working-graph edits with lineage (FR-A4). The self-improvement-safety trend (axis 10 / FR-S3) is computed across these entries.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cycle", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "cycle": { "type": "integer", "description": "Dreamer cycle index (NO wall-clock)." },
+          "kind": { "type": "string", "enum": ["consolidate", "revise_belief", "self_audit", "propose_graph_edit"] },
+          "rationale": { "type": "string" },
+          "parent_graph_hash": { "type": "string", "description": "Lineage: hash of the working graph this edit descends from (FR-A4)." },
+          "edit": {
+            "description": "When kind=propose_graph_edit: the reviewable working-graph diff (never the sanctioned graph).",
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

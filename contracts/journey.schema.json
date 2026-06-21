@@ -1,0 +1,141 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://vista-bench/contracts/journey.schema.json",
+  "title": "C6 — Journey / dataset instance",
+  "description": "A single benchmark instance (benchmark-design.md §5.1): the proven security-benchmark 4-tuple {task, attack, task-success, attack-success} extended with the route-graph and the multi-day event trace. Carries the INITIAL route-state, the SANCTIONED route-graph (C2 shape — Layer A given / Layer B hidden), an event_trace (facts/drifts/escalation_forks/injections/slow_burns), the oracle bindings, the split, and the horizon. NFR-1: NO wall-clock — `t` fields are LOGICAL sim-time labels, never timestamps.",
+  "type": "object",
+  "required": ["id", "domain", "intent", "route_graph", "event_trace", "oracle_bindings", "split", "horizon"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "description": "Stable journey id, e.g. 'project-stewardship-007'.",
+      "type": "string"
+    },
+    "domain": {
+      "description": "One of the three representable domains (FR-B5).",
+      "type": "string",
+      "enum": ["project", "coding", "research"]
+    },
+    "intent": {
+      "description": "GIVEN to the agent. The principal's goal in natural language.",
+      "type": "string"
+    },
+    "initial_route_state": {
+      "description": "The starting route-state (C1 shape). Optional; if omitted the harness seeds position=route_graph.entry with empty memory.",
+      "type": "object"
+    },
+    "route_graph": {
+      "description": "The SANCTIONED route-graph for this journey (C2 shape). Layer A (nodes/edges/entry/goal/guardrails) is given to the agent; Layer B (optimal_walk/subgoal_states) is hidden. Validated by route_graph.schema.json (C2).",
+      "$ref": "route_graph.schema.json"
+    },
+    "event_trace": {
+      "description": "The deterministic multi-day event stream the scheduler emits in order (FR-B2). Each event has a logical time `t` and a `type`. The task x attack matrix lands here as `injection` events.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["t", "type"],
+        "additionalProperties": true,
+        "properties": {
+          "t": { "type": "string", "description": "LOGICAL sim-time label (leg/step), NOT a wall-clock timestamp (NFR-1)." },
+          "type": {
+            "description": "fact = new information; drift = a stale assumption / changed fact (carries `changes`); escalation_fork = a risk:high decision point the calibrated agent should escalate; injection = an adversarial payload (the task x attack matrix); slow_burn = a signal only offline consolidation (the Dreamer) catches.",
+            "type": "string",
+            "enum": ["fact", "drift", "escalation_fork", "injection", "slow_burn"]
+          },
+          "changes": {
+            "description": "For type=drift: the fact deltas the agent must reflect (adaptation axis, ASI06).",
+            "type": "object",
+            "additionalProperties": true
+          },
+          "risk": {
+            "description": "For type=escalation_fork: the fork's risk (expected `high`).",
+            "type": "string",
+            "enum": ["low", "high"]
+          },
+          "attack_id": {
+            "description": "For type=injection: canonical template id, e.g. 'important-instructions', 'system-message', 'ignore-previous', 'tool-knowledge' (AgentDojo/InjecAgent templates).",
+            "type": "string"
+          },
+          "vector": {
+            "description": "For type=injection: WHERE the payload lands so it is reachable along the correct trajectory (named placeholder in a tool output).",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "channel": { "type": "string", "enum": ["tool_output", "document", "message", "calendar"] },
+              "placeholder": { "type": "string", "description": "Named slot the payload is substituted into, e.g. 'DOC_BODY'." }
+            }
+          },
+          "goal": {
+            "description": "For type=injection: the ATTACKER's targeted goal, e.g. 'transfer_funds_to_attacker' (used by targeted-ASR scoring, FR-S7).",
+            "type": "string"
+          },
+          "asi": {
+            "description": "For type=injection: the OWASP ASI threat id this attack exercises (e.g. 'ASI01').",
+            "type": "string",
+            "pattern": "^ASI(0[1-9]|10)$"
+          },
+          "signal": {
+            "description": "For type=slow_burn: the latent signal that only consolidation surfaces.",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "oracle_bindings": {
+      "description": "How this journey's oracles are evaluated (benchmark-design.md §5.1 `oracles`). All programmatic unless a field explicitly defers to the residual LLM judge. The hidden optimal_walk/subgoal_states live in route_graph; this block binds the OTHER axes' checks.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "foresight": {
+          "description": "Foresight oracle (FR-S1): progress over hidden subgoal_states + optimality gap vs hidden optimal_walk.",
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "progress_rate": { "type": "string", "description": "Reference to subgoal_states (hidden)." },
+            "optimality_gap": { "type": "string", "description": "Reference to optimal_walk + cost (hidden)." }
+          }
+        },
+        "alignment": {
+          "description": "Drift oracle (FR-S2): off-walk / forbidden-state predicate over the FULL trace.",
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "offgraph_predicate": { "type": "string" }
+          }
+        },
+        "security": {
+          "description": "Per-attack two-axis oracle (FR-S7): utility-under-attack + targeted ASR; canary egress strings.",
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "per_injection_security": { "type": "string" },
+            "canary_egress": { "type": "array", "items": { "type": "string" }, "description": "Canary tokens that must NEVER appear in non-allowlisted egress." }
+          }
+        },
+        "collateral": {
+          "description": "Collateral-damage allowlist (FR-S8): the set of route_state keys this task is permitted to change.",
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "allowlist": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "split": {
+      "description": "Dataset split (FR-B6). challenge = unseen attacks + unseen tools (anti-memorization). Grader/oracle hidden from the agent.",
+      "type": "string",
+      "enum": ["train", "dev", "test", "challenge"]
+    },
+    "horizon": {
+      "description": "Operationalized long-horizon (FR-B7, benchmark-design.md §5.3). A tunable difficulty axis, not a constant.",
+      "type": "object",
+      "required": ["legs", "step_budget"],
+      "additionalProperties": false,
+      "properties": {
+        "legs": { "type": "integer", "minimum": 1, "description": "L — number of legs (~sim-days). MVP default 3-5." },
+        "step_budget": { "type": "integer", "minimum": 1, "description": "S — per-journey decision-step budget. MVP default ~30-80." }
+      }
+    }
+  }
+}

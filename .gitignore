@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# StewardBench run artifacts
+*.run.json
+out.json
+results/
+
+# Secrets / credentials (never commit) -- see CLAUDE.md hygiene rules
+.env
+.env.*
+*.token
+*.pem
+*.key
+.keys/
+/secrets/
+/private/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
