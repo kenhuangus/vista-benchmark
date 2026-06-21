@@ -2,7 +2,7 @@
 
 These tests exercise the WHOLE slice through the real interfaces the other seats
 wrote (``harness/`` runtime + scorer, ``journeys/`` loader, ``contracts/`` C5
-seam) — nothing is mocked. They assert the four things the S3 brief mandates:
+seam) — nothing is mocked. They assert four things:
 
 1. the seed journey RUNS through the adapter + harness and produces a scorecard;
 2. the scorecard carries the expected axes (the C4 shape this slice owns);

@@ -1,6 +1,6 @@
 """S1 harness tests — the deterministic spine, against the frozen contracts.
 
-Mandated cases (from the S1 brief):
+Mandated cases:
   * C1 route_state round-trip (serialize/validate/diff).
   * OFF_SANCTIONED_WALK is RECORDED on a deviating transition.
   * the hidden oracle is stripped from ``visible_view``.

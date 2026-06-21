@@ -1,10 +1,7 @@
 # Sources
 
-## Capstone Brief
-
-- `C:\Users\kenhu\Downloads\Gauntlet Capstone Brief.pdf`
-  - Key constraints: proposals due Monday, June 15, 2026 at 6:00 PM; project planning document due Wednesday, June 17, 2026 at 11:59 PM; live presentation Monday, June 29, 2026.
-  - Relevant direction: "A philosophically different take on agents."
+Verified citations for VISTA Bench. Every arXiv id below was checked against its
+live arXiv abstract page.
 
 ## Long-Horizon and Long-Running Agent Benchmarks
 
@@ -67,7 +64,7 @@
 
 ## Closest Prior Art (novelty positioning)
 
-These are the nearest existing benchmarks to StewardBench's framing — scoring a
+These are the nearest existing benchmarks to VISTA Bench's framing — scoring a
 maintained, shared work state under asynchronous change, with dreaming and
 security as axes. Each owns one piece; none assembles the whole. Cited here so the
 proposal distinguishes itself honestly rather than ignoring overlap. (arXiv ids
@@ -76,7 +73,7 @@ below were each verified against the live abstract/listing.)
 - ARE: Scaling Up Agent Environments and Evaluations (+ Gaia2 benchmark)
   - https://arxiv.org/abs/2509.17158 (platform) and https://arxiv.org/abs/2602.11964 (Gaia2)
   - Asynchronous, dynamic environments; 1,120 scenarios. Owns the "async world"
-    axis StewardBench leans on. Difference: scores per-scenario task success, not a
+    axis VISTA Bench leans on. Difference: scores per-scenario task success, not a
     persistently maintained artifact across a long-running session, and has no
     dream phase or security-as-axis.
 
@@ -111,7 +108,7 @@ below were each verified against the live abstract/listing.)
   - https://arxiv.org/abs/2510.01654
   - Proposes CLASP, a framework for evaluating autonomous security agents across a
     closed reconnaissance→exploitation→remediation→validation loop. Relevant to
-    StewardBench's *security* axis as prior art on evaluating security agents.
+    VISTA Bench's *security* axis as prior art on evaluating security agents.
     (Note: an earlier research pass over-attributed "continuity-of-artifacts as a
     first-class metric" to this paper; the abstract does not use that framing, so
     we do not claim it as a continuity competitor.)

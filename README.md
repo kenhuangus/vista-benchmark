@@ -3,11 +3,11 @@
 **A deterministic benchmark for long-running agents — scoring *foresight × safety*
 over a long horizon, not just task success.**
 
-VISTA Bench is the runnable, deterministic implementation of the **StewardBench**
-capstone (brief *Direction B — "a philosophically different take on agents"*):
+VISTA Bench is a research benchmark and reference agent for a question that
+ordinary task-success metrics don't answer:
 
-> *Could a company run on one shared agent that does most of the work, while the
-> team simply verifies it?*
+> *Could a team run on one shared agent that does most of the work, while people
+> only verify it — and would you trust it over a long horizon?*
 
 Most agent benchmarks ask **"can the agent finish the task?"** A pass/fail grade
 answers that — and misses the thing that actually decides whether you can trust an
@@ -196,13 +196,11 @@ bench/        pass^k multi-run driver + versioned results archival
 validation/   human-validated gold subset + oracle-vs-human agreement harness (+ FINDINGS.md)
 vista_run.py  the CLI (single / --compare / --corpus / --bench / --rsi / --validate)
 results/      archived leaderboard runs (gitignored)
+submissions/  conference paper drafts (NeurIPS D&B / ICLR / AAAI / ICML)
 ```
 
-**Design docs** (the conceptual capstone behind the implementation):
-[`architecture.md`](architecture.md), [`benchmark-design.md`](benchmark-design.md),
-[`prd.md`](prd.md), [`team-charter.md`](team-charter.md),
-[`BENCHMARK_SPEC.md`](BENCHMARK_SPEC.md), [`RESEARCH_MEMO.md`](RESEARCH_MEMO.md),
-[`SOURCES.md`](SOURCES.md).
+**Design docs:** [`architecture.md`](architecture.md),
+[`benchmark-design.md`](benchmark-design.md), and [`SOURCES.md`](SOURCES.md).
 
 ---
 
@@ -216,5 +214,4 @@ OSWorld), workplace simulation (TheAgentCompany), time-horizon calibration
 recursive self-improvement** against a single deterministic, human-validated
 oracle. The `pass/fail-can't-see-the-premium` result and the RSI
 forbidden-reachability gate (axis10) are the freshest contributions. See
-[`RESEARCH_MEMO.md`](RESEARCH_MEMO.md) and [`SOURCES.md`](SOURCES.md) for the
-head-to-head and citations.
+[`SOURCES.md`](SOURCES.md) for the head-to-head and citations.

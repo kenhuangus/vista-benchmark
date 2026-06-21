@@ -3,11 +3,11 @@
 | | |
 |---|---|
 | **Status** | Draft v1 (2026-06-20) |
-| **Companion docs** | [prd.md](prd.md) (the *what/why* + requirements), [plan.md](plan.md) (the *who/when* + enforcement) |
+| **Companion docs** | [benchmark-design.md](benchmark-design.md) (design rationale), [SOURCES.md](SOURCES.md) (citations) |
 | **Owns** | Components, trust boundaries, the contract surface, the route-graph runtime, the scoring oracle |
 
-This document is the **technical contract surface**. Every requirement in [prd.md](prd.md)
-that says "**[Cn …]**" is enforced by a contract defined here in [§6](#6-the-contracts-the-enforcement-surface).
+This document is the **technical contract surface**. Every contract requirement
+(tagged "**[Cn …]**") is enforced by a contract defined here in [§6](#6-the-contracts-the-enforcement-surface).
 
 ---
 
@@ -149,7 +149,7 @@ Privilege separation is the **CaMeL / Dual-LLM** pattern made enforceable:
 
 Six contracts are **frozen day one** in `contracts/`. Each owner builds behind their contract; the
 **contract test suite** in CI is the single merge gate. Changing a contract needs a PR + one reviewer
-from each affected role. *(Process: [plan.md §6](plan.md#6-ci--the-enforcement-gate).)*
+from each affected role.
 
 | # | Contract | File | Defines | Consumed by | Enforced by (test) |
 |---|---|---|---|---|---|
@@ -241,7 +241,7 @@ journeys/         data-only journeys (project / coding / research) + hidden grou
 agents/
   ranger/         scout.py, worker.py, dreamer.py
   adapters/       claude_code.py, codex.py, openclaw.py, hermes.py (Week 2)
-docs/ (or root)   prd.md, architecture.md, plan.md, SOURCES.md
+docs/ (or root)   architecture.md, benchmark-design.md, SOURCES.md
 ```
 
 ## 10. Technology choices
@@ -261,5 +261,5 @@ A change reaches `main` only if:
    silent scorer/agent regressions).
 3. For any C1–C6 edit: a PR + one reviewer per affected role (the contracts are the team's shared API).
 
-These gates are what let a 3–4 person team build in parallel without blocking — detailed in
-[plan.md](plan.md).
+These gates keep `main` green and guard the scorer and reference agent against
+silent regressions.

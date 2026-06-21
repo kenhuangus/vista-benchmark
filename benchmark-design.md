@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Design rationale v1 (2026-06-20) — *standalone; feeds corrections back into [prd.md](prd.md) / [architecture.md](architecture.md) / [plan.md](plan.md)* |
+| **Status** | Design rationale v1 — *standalone; companion to [architecture.md](architecture.md)* |
 | **Purpose** | Justify VISTA's construction against how respected agent benchmarks are actually built, lock the open design questions (F1), and define the dataset + scoring precisely enough to implement. |
 | **Audience** | The team + a NeurIPS Datasets & Benchmarks reviewer. |
 
@@ -257,9 +257,9 @@ model-agnostic, adversarial, graph-grounded** version.
 
 ## 12. Corrections this design forces in the other docs
 
-1. **ASI mapping fix** in [prd.md §7](prd.md) — use the verified ASI07–ASI10 names (§7 here).
+1. **ASI mapping fix** — use the verified ASI07–ASI10 names (§7 here).
 2. **Soften the gap claim** to the SAHOO-aware wording (§9).
-3. **Add proven mechanisms** missing from prd/architecture: pass^k, progress-rate foresight, collateral
+3. **Add proven mechanisms** to the architecture doc: pass^k, progress-rate foresight, collateral
    allowlist, the task×attack matrix, the unseen-tool challenge split, generate-with-verifier.
 4. **Lock F1** to two-layer (guardrails given / optimal-walk hidden) and update the architecture wording
    that says the runtime "admits only legal edges" → it **records** off-walk steps and **blocks** forbidden crossings.

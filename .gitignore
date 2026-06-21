@@ -12,7 +12,7 @@ venv/
 .coverage
 htmlcov/
 
-# StewardBench run artifacts
+# VISTA Bench run artifacts
 *.run.json
 out.json
 results/
