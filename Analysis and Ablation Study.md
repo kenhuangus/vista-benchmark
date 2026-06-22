@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Plan v1 - execution-ready; companion to `benchmark-design.md`, `architecture.md`, `experiments/README.md` |
-| **Executed** | P0/P1 analyses **A1-A8** are now generated deterministically by `analysis/analyze.py` -> **`analysis/RESULTS.md`** (pure stdlib, fixed-seed bootstrap, byte-reproducible). Threat §3 (axis10 discrimination) closed via the adversarial Dreamer. Still open: A5 calibration, AB1 oracle-blind scorer, AB2 single-policy baseline, AB4/AB7 (NEW CODE), and corpus growth. |
+| **Executed** | P0/P1 analyses **A1-A8** -> **`analysis/RESULTS.md`** (deterministic, byte-reproducible). **AB1** oracle-blind ablation -> **`analysis/AB1-oracle-ablation.md`** (refutes H6 on the current corpus — the excusal rule is load-bearing, the hidden oracle is not). Threat §3 (axis10 discrimination) closed via the adversarial Dreamer. Still open: A5 calibration, AB2 single-policy baseline, AB4/AB7 (NEW CODE), and corpus growth. |
 | **Purpose** | Specify the analysis + ablation section of the VISTA Bench paper/leaderboard: the headline analyses, the ablation menu, the statistical methodology, and the execution order - grounded in the actual codebase and in how comparable agent benchmarks build their analysis sections. |
 | **Audience** | The team + a NeurIPS Datasets & Benchmarks reviewer. |
 | **Scope discipline** | Every analysis names its exact data source in the repo (a file path / a `vista_run.py` or `experiments/*.py` command / a `results/` artifact). Every related-benchmark idea cites a verified URL. Items are tagged **[DONE]** (already produced), **[CHEAP]** (reuses existing harness, no new code), or **[NEW CODE]** (needs new harness/runner code). |
@@ -27,7 +27,7 @@ The scorer is a pure function of `(route_graph, trajectory[, satisfied_subgoals,
 | **H3** | **Reliability is low and non-monotone in model capability,** and only `pass^k` surfaces it (the "most expensive model is the least reliable" finding: Opus 0/5, Gemini Flash 5/5). | A3, A4; `experiments/passk_run.py` |
 | **H4** | **Security holds uniformly** under stepwise injection (ASR 0 across all 25 runs) and the oracle is **live** (the hijacked positive control fires ASR 1.0). | A8; `experiments/security_run.py`, `agents/tests/test_stepwise_adapter.py` |
 | **H5** | **The RSI safety gate is load-bearing.** The same rogue Dreamer drives forbidden-reachability 0->1 with the gate OFF and is fully blocked with it ON (`axis10`). | AB3; `vista_run.py --rsi` |
-| **H6** | **The hidden oracle is necessary for foresight** - a naive heuristic that does not read `optimal_walk` / `subgoal_states` cannot reproduce the foresight/calibration verdict. | AB1 |
+| **H6** | **The hidden oracle is necessary for foresight** - a naive heuristic that does not read `optimal_walk` / `subgoal_states` cannot reproduce the foresight/calibration verdict. **[TESTED — REFUTED on the current corpus: see AB1.]** | AB1 (`analysis/AB1-oracle-ablation.md`) |
 | **H7** | **The instrument is deterministic** - identical input -> byte-identical scorecard across seeds (NFR-1). | AB8; `bench/runner.py` `deterministic` flag |
 ---
 
@@ -103,7 +103,9 @@ Each analysis gives: the **question**, the **metric/plot**, the **exact data sou
 
 Each ablation: **hypothesis -> what is toggled -> control vs treatment -> metric -> confirm/refute criterion**, with a status tag.
 
-### AB1 - Two-graph / oracle ablation: is the hidden oracle load-bearing? **[NEW CODE]**
+### AB1 - Two-graph / oracle ablation: is the hidden oracle load-bearing? **[DONE — refutes H6 on current corpus]**
+
+> **EXECUTED** (`analysis/oracle_ablation.py` -> `analysis/AB1-oracle-ablation.md`, deterministic, $0). Result: on all 6 journeys the **escalation-excusal rule (FINDING-001) plus the visible `risk:high` labels** is what separates ranger (safe) from naive (careless) — a blind scorer *without* the excusal rule **inverts** the ranking (rates ranger's escalation as drift, 2 vs 2), and *with* it reproduces the real verdict (0 vs 2). The hidden `optimal_walk` coincides with the cheapest visible path and both agents fire every gold subgoal (progress 1.0 each), so the `optimal_walk`/`subgoal_states` oracle is **not load-bearing on the present corpus** — H6 is **refuted here**. Directive: add journeys where `optimal_walk` diverges from the cheapest visible path and where the goal is reachable while skipping a gold subgoal, then re-run AB1.
 
 - **Hypothesis (H6).** Foresight/alignment scoring genuinely requires the hidden oracle (`optimal_walk` + `subgoal_states`); a naive heuristic scoring only from the agent-visible guardrail view cannot reproduce the verdict.
 - **Toggle.** Two scorers on the same trajectories: **(control)** the real `harness/scorer.py` reading the hidden oracle; **(treatment)** an "oracle-blind" scorer grading foresight from a heuristic with no access to `optimal_walk`/`subgoal_states` (e.g. "progress = fraction of nodes visited", "drift = any edge not the lexicographically-first out-edge").
@@ -190,7 +192,7 @@ Each ablation: **hypothesis -> what is toggled -> control vs treatment -> metric
 
 | Ablation | Status | Produces |
 |---|---|---|
-| AB1 oracle load-bearing | **NEW CODE** | oracle-blind vs real-scorer divergence table |
+| AB1 oracle load-bearing | **DONE** (refutes H6 here) | `analysis/AB1-oracle-ablation.md` — excusal rule is load-bearing, oracle is not (this corpus) |
 | AB2 role isolation | DONE (cfg 3,4) / NEW CODE (cfg 1) | per-role contribution; axis10 N/A-without-Dreamer |
 | AB3 RSI gate ON/OFF | **DONE** | the axis10 headline (gate ON stable / OFF drifting) |
 | AB4 security defense + attack-type | DONE (project) / NEW CODE (detect-only) / CHEAP (per-ASI) | enforcement-necessity + ASI01/02/06 breakdown |
@@ -234,7 +236,7 @@ Prioritized by value-per-cost. Cost is rough; Gemini = 0 USD (Vertex credits), C
 | **P1** | AB9 split breakdown (flagged underpowered) | CHEAP | Table 5 | Yes (pass_hat_k_by_split) | 0 |
 | **P2** | AB6 max-steps / k sweep | CHEAP | Fig 5 (sensitivity) | Partial (new runs) | ~10-20 USD Claude; Gemini 0 |
 | **P2** | AB4 per-ASI breakdown, 3 journeys, k=5 | CHEAP | Table 6 | New runs (coding/research) | ~15 USD Claude; Gemini 0 |
-| **P2** | AB1 oracle-blind scorer | NEW CODE | Table 7 (oracle load-bearing) | Yes (re-score trajectories) | 0 (no model calls) |
+| **P2** | AB1 oracle-blind scorer | **DONE** | `analysis/AB1-oracle-ablation.md` (refutes H6 here) | Yes (re-score trajectories) | 0 (no model calls) |
 | **P2** | AB2 single-policy plan+act baseline | NEW CODE | the Scout-contribution row | New runs | ~10 USD Claude; Gemini 0 |
 | **P3** | A5 confidence calibration (ECE/Brier/diagram) | NEW CODE | Fig 6 | New runs (per-fork confidence) | ~10-20 USD Claude; Gemini 0 |
 | **P3** | AB7 prompt ablations | NEW CODE | Table 8 | New runs | ~10 USD Claude; Gemini 0 |
