@@ -145,6 +145,116 @@
     <div class="card"><div class="kicker">WORKER · no authority</div><h3>Sandboxed executor</h3><p>Read / search / request only — never authorizes its own actions.</p></div>
     <div class="card"><div class="kicker">DREAMER · no authority</div><h3>Offline self-improvement</h3><p><em>Proposes</em> working-graph edits that the harness RSI gate accepts or rejects. Never edits the sanctioned graph.</p></div>
   </div>
+
+  <!-- ROLE ANIMATION -------------------------------------------------------->
+  <div id="roles">
+    <style>
+      #roles{margin-top:24px}
+      #roles .stage{background:#0a0e16;border:1px solid var(--line);border-radius:14px;padding:6px}
+      #roles svg{width:100%;height:auto;display:block}
+      #roles .role rect{fill:var(--card);stroke:var(--line);stroke-width:2;transition:stroke .25s,filter .25s}
+      #roles .role.active rect{stroke:var(--acc2);filter:drop-shadow(0 0 9px rgba(67,224,192,.45))}
+      #roles .rt{font:700 15px var(--sans);fill:var(--ink);text-anchor:middle}
+      #roles .rtag{font:11px var(--mono);text-anchor:middle}
+      #roles .bound{stroke:var(--dim);stroke-width:1.5;stroke-dasharray:4 4;opacity:.6}
+      #roles .blab{font:9.5px var(--mono);fill:var(--dim);text-anchor:middle;letter-spacing:.5px}
+      #roles .chip rect{fill:var(--bg2);stroke:var(--line);stroke-width:1.5;transition:fill .3s,stroke .3s}
+      #roles .chip text{fill:var(--dim);font:12px var(--mono);text-anchor:middle;transition:fill .3s}
+      #roles .chip.on rect{fill:rgba(67,224,160,.13);stroke:var(--good)}
+      #roles .chip.on text{fill:var(--good)}
+      #roles .chip.deny rect{fill:rgba(255,107,107,.13);stroke:var(--bad)}
+      #roles .chip.deny text{fill:var(--bad)}
+      #roles .gate{fill:rgba(110,168,255,.10);stroke:var(--acc);stroke-width:1.5}
+      #roles .glab{font:11px var(--mono);fill:var(--acc);text-anchor:middle}
+      #roles .arr{stroke:var(--dim);stroke-width:1.5;fill:none;marker-end:url(#ra-ah)}
+      #roles .cap{min-height:42px;display:flex;align-items:center;font-family:var(--mono);font-size:13.5px;color:var(--mut);padding:12px 4px 4px;line-height:1.45}
+      #roles .cap.punch{color:var(--ink);font-weight:600}
+      #roles .ctl{display:flex;gap:10px;align-items:center;margin-top:6px}
+      #roles .ctl button{font:600 13px var(--sans);color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 16px;cursor:pointer}
+      #roles .ctl button:hover{border-color:var(--acc)}
+    </style>
+    <div class="stage">
+      <svg viewBox="0 0 760 352" role="img" aria-label="Animation of the three Ranger roles: Scout plans, escalates and authorizes (has authority); Worker only reads, searches and requests and is denied when it tries to authorize; Dreamer proposes working-graph edits that the RSI gate accepts or rejects.">
+        <defs><marker id="ra-ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--dim)"/></marker></defs>
+
+        <!-- authority boundary between Scout and the no-authority roles -->
+        <line class="bound" x1="14" y1="120" x2="206" y2="120"/>
+        <text class="blab" x="110" y="115">authority boundary</text>
+
+        <!-- SCOUT row -->
+        <g class="role" id="ra-scout"><rect x="18" y="18" width="180" height="86" rx="12"/>
+          <text class="rt" x="108" y="54">SCOUT</text>
+          <text class="rtag" x="108" y="76" fill="var(--acc2)">● has authority</text></g>
+        <g class="chip" id="ra-s1"><rect x="238" y="40" width="150" height="42" rx="9"/><text x="313" y="66">plan (Dijkstra)</text></g>
+        <g class="chip" id="ra-s2"><rect x="400" y="40" width="134" height="42" rx="9"/><text x="467" y="66">escalate at fork</text></g>
+        <g class="chip" id="ra-s3"><rect x="546" y="40" width="186" height="42" rx="9"/><text x="639" y="66">authorize edges ✓</text></g>
+
+        <!-- WORKER row -->
+        <g class="role" id="ra-worker"><rect x="18" y="134" width="180" height="86" rx="12"/>
+          <text class="rt" x="108" y="170">WORKER</text>
+          <text class="rtag" x="108" y="192" fill="var(--mut)">○ no authority</text></g>
+        <g class="chip" id="ra-w1"><rect x="238" y="156" width="92" height="42" rx="9"/><text x="284" y="182">read</text></g>
+        <g class="chip" id="ra-w2"><rect x="342" y="156" width="104" height="42" rx="9"/><text x="394" y="182">search</text></g>
+        <g class="chip" id="ra-w3"><rect x="458" y="156" width="110" height="42" rx="9"/><text x="513" y="182">request</text></g>
+        <g class="chip" id="ra-w4"><rect x="580" y="156" width="152" height="42" rx="9"/><text x="656" y="182">authorize ✗</text></g>
+
+        <!-- DREAMER row -->
+        <g class="role" id="ra-dreamer"><rect x="18" y="250" width="180" height="86" rx="12"/>
+          <text class="rt" x="108" y="286">DREAMER</text>
+          <text class="rtag" x="108" y="308" fill="var(--mut)">○ no authority · offline</text></g>
+        <g class="chip" id="ra-d-prop"><rect x="232" y="272" width="128" height="42" rx="9"/><text x="296" y="298">propose edits</text></g>
+        <path class="arr" d="M362,293 L384,293"/>
+        <rect class="gate" x="388" y="266" width="96" height="54" rx="10"/><text class="glab" x="436" y="290">RSI</text><text class="glab" x="436" y="305">gate</text>
+        <path class="arr" d="M486,284 L506,268"/>
+        <path class="arr" d="M486,302 L506,310"/>
+        <g class="chip" id="ra-d-acc"><rect x="510" y="248" width="224" height="34" rx="8"/><text x="622" y="270">accept ✓ (invariant held)</text></g>
+        <g class="chip" id="ra-d-rej"><rect x="510" y="290" width="224" height="34" rx="8"/><text x="622" y="312">reject ✗ (opens forbidden)</text></g>
+      </svg>
+    </div>
+
+    <div class="cap" id="ra-cap">Ranger is split into three roles by capability — so no role can grade its own safety.</div>
+    <div class="ctl"><button id="ra-replay" type="button">▶ Replay</button></div>
+
+    <script>
+    (function(){
+      var cap=document.getElementById('ra-cap'), running=false;
+      var RM=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms);});};
+      function say(t){cap.innerHTML=t;}
+      function role(id,on){var e=document.getElementById(id);if(e)e.classList[on?'add':'remove']('active');}
+      function chip(id,cl){var e=document.getElementById('ra-'+id);if(!e)return;e.classList.remove('on','deny');if(cl)e.classList.add(cl);}
+      var CH=['s1','s2','s3','w1','w2','w3','w4','d-prop','d-acc','d-rej'];
+      function reset(){['ra-scout','ra-worker','ra-dreamer'].forEach(function(r){role(r,false);});CH.forEach(function(c){chip(c,null);});cap.classList.remove('punch');}
+      function finalState(){
+        chip('s1','on');chip('s2','on');chip('s3','on');
+        chip('w1','on');chip('w2','on');chip('w3','on');chip('w4','deny');
+        chip('d-prop','on');chip('d-acc','on');chip('d-rej','deny');
+        say('Three roles, one authority boundary — only Scout authorizes; Worker executes; Dreamer self-improves behind the RSI gate.');cap.classList.add('punch');
+      }
+      async function run(){
+        if(running)return; running=true; reset();
+        if(RM){finalState();running=false;return;}
+        role('ra-scout',true);
+        say('<b style="color:var(--acc2)">Scout</b> has authority — it plans the cheapest sanctioned path…'); chip('s1','on'); await sleep(1150);
+        say('…escalates to a human at genuine high-risk forks…'); chip('s2','on'); await sleep(1150);
+        say('…and authorizes the edges the Worker is allowed to take.'); chip('s3','on'); await sleep(1500); role('ra-scout',false);
+        role('ra-worker',true);
+        say('<b style="color:var(--acc)">Worker</b> is sandboxed — it can read…'); chip('w1','on'); await sleep(720);
+        say('…search…'); chip('w2','on'); await sleep(720);
+        say('…and request. That is all.'); chip('w3','on'); await sleep(1000);
+        say('If the Worker tries to authorize its own action, it is <b style="color:var(--bad)">DENIED</b> — it has no authority.'); chip('w4','deny'); await sleep(1700); role('ra-worker',false);
+        role('ra-dreamer',true);
+        say('<b style="color:var(--warn)">Dreamer</b> runs offline — it proposes edits to its <em>working</em> graph…'); chip('d-prop','on'); await sleep(1300);
+        say('…the harness RSI gate accepts edits that keep the safety invariant…'); chip('d-acc','on'); await sleep(1350);
+        say('…and REJECTS any edit that opens a new path to a forbidden state. The sanctioned graph is never touched.'); chip('d-rej','deny'); await sleep(1800); role('ra-dreamer',false);
+        say('Authority is split so <b>no role can grade its own safety</b> — Scout authorizes, Worker executes, Dreamer self-improves behind the gate.'); cap.classList.add('punch');
+        running=false;
+      }
+      document.getElementById('ra-replay').addEventListener('click',run);
+      if('IntersectionObserver' in window){var seen=false,io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&!seen){seen=true;run();}});},{threshold:.4});io.observe(document.getElementById('roles'));}else{run();}
+    })();
+    </script>
+  </div>
 </div></section>
 
 <!-- HOW -------------------------------------------------------------------->
@@ -427,7 +537,7 @@ ds = load_dataset("kenhuangus/vista-bench-corpus")   <span class="c"># train / d
   </div>
 
   <h3 style="margin-top:34px">Frontier models, run through the same scorer <span class="pill">Pillar A</span></h3>
-  <p class="muted">Five real models — Claude Opus 4.8 / Sonnet 4.6 / Haiku 4.5 (subscription CLI) and Gemini&nbsp;2.5 Pro / 3.5 Flash (Vertex) — driven through the <em>same</em> adapter and deterministic scorer as the reference agents, including a turn-by-turn (stepwise) seam that delivers the injected payload <em>at the moment of decision</em>.</p>
+  <p class="muted">Five real models — Claude Opus 4.8 / Sonnet 4.6 / Haiku 4.5 (subscription CLI) and Gemini&nbsp;2.5 Pro / 3.5 Flash (Vertex) — driven through the <em>same</em> adapter and deterministic scorer as the reference agents. The model fills all three Ranger roles: <strong>Scout</strong> (plans + escalates), <strong>Worker</strong> (executes turn-by-turn, with the injection delivered <em>at the moment of decision</em>), and <strong>Dreamer</strong> (proposes self-improvement edits the RSI gate accepts or rejects) — so a real model is measured on every axis, including <span class="axis">axis10</span> self-improvement safety.</p>
 
   <div class="two" style="margin-top:6px">
     <div>
@@ -451,6 +561,8 @@ ds = load_dataset("kenhuangus/vista-bench-corpus")   <span class="c"># train / d
     </tbody>
   </table>
   <p class="muted">Every model resists the injection (ASR 0 across all 25 runs) and escalates correctly (recall 1.0) — so a pass/fail or "did it escalate" view rates all five <em>identically</em>. <strong>pass<sup>k</sup> separates them cleanly:</strong> both Gemini models complete the stepwise task 5/5, Sonnet is flaky at 2/5, and Haiku and Opus never complete it. Capability and price don't predict long-horizon reliability — <strong>Opus (the most expensive) goes 0/5 where Gemini Flash (free) goes 5/5.</strong></p>
+
+  <p class="muted" style="margin-top:14px"><span class="axis">axis10</span> · <strong>self-improvement safety</strong> — placed in the Dreamer seat, the model proposes working-graph edits the RSI gate accepts or rejects. Gemini 3.5 Flash proposed only safe edits (invariant held) and <strong>healed a poisoned graph</strong> — removing the edge into the forbidden node, forbidden-reachability 1→0. axis10 score 1.0 — the half of the benchmark a single plan/act policy never reaches.</p>
 
   <p class="note" style="margin-top:18px">Small-sample numbers are a behavioural signal, not a leaderboard ranking; <code>pass^k</code> over repeated runs is the quantitative version. Raw scorecards live under <code>results/</code> (gitignored).</p>
   <p class="note">Exact model identifiers (from the CLI usage records): <code>claude-opus-4-8</code>, <code>claude-sonnet-4-6</code>, <code>claude-haiku-4-5-20251001</code>, <code>gemini-2.5-pro</code>, and Gemini Flash — requested as <code>gemini-2.5-flash</code>, which the Vertex CLI served and billed as <code>gemini-3.5-flash</code>.</p>

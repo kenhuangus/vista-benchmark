@@ -257,6 +257,19 @@ class LLMAgent:
         return {"action": "done", "_unparsed": text[:200]}
 
     # ------------------------------------------------------------------ #
+    # generic single-shot completion (used by the LLM Dreamer / RSI role)
+    # ------------------------------------------------------------------ #
+    def complete(self, prompt: str) -> str:
+        """One CLI call; returns the model's text. Usage is accumulated on
+        :attr:`usage` like ``plan``/``act``. Used by roles that need a raw
+        completion (e.g. the Dreamer proposing working-graph edits)."""
+        envelope = self._call_cli(prompt)
+        self._accumulate_usage(envelope)
+        text = envelope.get("result", "") or ""
+        self.last_result_text = text
+        return text
+
+    # ------------------------------------------------------------------ #
     # prompt
     # ------------------------------------------------------------------ #
     def _build_prompt(self, visible: dict[str, Any]) -> str:
@@ -347,10 +360,16 @@ class LLMAgent:
                     # longer cooldown than an ordinary non-zero exit.
                     wsl_glitch = "E_UNEXPECTED" in last_err or "Catastrophic" in last_err
                     time.sleep((8.0 if wsl_glitch else 2.0) * attempt)
-                proc = subprocess.run(
-                    ["wsl.exe", "-d", self.wsl_distro, "--", "bash", "-lc", bash],
-                    capture_output=True, text=True, timeout=self.timeout, env=env,
-                )
+                try:
+                    proc = subprocess.run(
+                        ["wsl.exe", "-d", self.wsl_distro, "--", "bash", "-lc", bash],
+                        capture_output=True, text=True, timeout=self.timeout, env=env,
+                    )
+                except subprocess.TimeoutExpired:
+                    # A hung wsl.exe / model call — normal calls finish in seconds, so
+                    # a timeout is a hang, not slow reasoning. Retry rather than abort.
+                    proc, last_err = None, f"timeout after {self.timeout}s"
+                    continue
                 if proc.returncode == 0:
                     break
                 # WSL surfaces its own errors on stdout as UTF-16 (nulls between
