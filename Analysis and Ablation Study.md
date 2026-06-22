@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Plan v1 - execution-ready; companion to `benchmark-design.md`, `architecture.md`, `experiments/README.md` |
-| **Executed** | P0/P1 analyses **A1-A8** -> **`analysis/RESULTS.md`** (deterministic, byte-reproducible). **AB1** oracle-blind ablation -> **`analysis/AB1-oracle-ablation.md`** (refutes H6 on the current corpus — the excusal rule is load-bearing, the hidden oracle is not). Threat §3 (axis10 discrimination) closed via the adversarial Dreamer. Still open: A5 calibration, AB2 single-policy baseline, AB4/AB7 (NEW CODE), and corpus growth. |
+| **Executed** | P0/P1 **A1-A8** -> **`analysis/RESULTS.md`**. **AB1** oracle-blind -> **`AB1-oracle-ablation.md`** (refutes H6 on the current corpus). **AB1b** corpus growth -> **`AB1b-oracle-stress.md`** + `journeys/oracle_stress_001.json` (oracle-divergent journey makes the hidden oracle load-bearing — **H6 confirmed there**). **AB2** role isolation -> **`AB2-role-ablation.md`** (Scout recall 1.0 vs 0.0; Worker no authority; axis10 only via Dreamer). **AB4** enforcement -> **`AB4-enforcement-ablation.md`** (ASR 0->1 detect-only). **A5** calibration -> **`A5-calibration.md`** (gemini-flash under-recognises high-risk forks unaided, ECE 0.333). **AB7** prompt ablation -> **`AB7-prompt-ablation.md`** (textual guardrail redundant; escalation signal is structural — reconciles A5). Threat §3 closed via the adversarial Dreamer. **All planned P0-P3 analysis/ablation items executed.** |
 | **Purpose** | Specify the analysis + ablation section of the VISTA Bench paper/leaderboard: the headline analyses, the ablation menu, the statistical methodology, and the execution order - grounded in the actual codebase and in how comparable agent benchmarks build their analysis sections. |
 | **Audience** | The team + a NeurIPS Datasets & Benchmarks reviewer. |
 | **Scope discipline** | Every analysis names its exact data source in the repo (a file path / a `vista_run.py` or `experiments/*.py` command / a `results/` artifact). Every related-benchmark idea cites a verified URL. Items are tagged **[DONE]** (already produced), **[CHEAP]** (reuses existing harness, no new code), or **[NEW CODE]** (needs new harness/runner code). |
@@ -166,6 +166,8 @@ Each ablation: **hypothesis -> what is toggled -> control vs treatment -> metric
 
 ### AB7 - Prompt ablations: the action menu and the escalation instruction **[NEW CODE]**
 
+> **EXECUTED** (`agents/llm_agent.py` `prompt_ablation` hook + `experiments/prompt_ablation_run.py` -> `analysis/AB7-prompt-ablation.md`, $0 on Gemini; prompt-construction pinned by `agents/tests/test_prompt_ablation.py`). Removing only the textual `escalate@` guardrail line leaves gemini-2.5-flash recall **unchanged (1.00 -> 1.00)** across the 3 dev journeys — the model escalates from the **visible graph structure** (the `hitl` node is still a sanctioned move in the action menu), not the instruction. This *reconciles* with A5 (which found 0.33 confidence at high-risk forks): A5's bare probe stripped the structure too, so recognition collapsed; AB7 keeps it, so the textual line is redundant. Sharper claim than either alone — **axis06 must surface the escalation target structurally, and need not rely on a textual guardrail.** (Future: also ablate the structural cue — drop the `hitl` node from the menu — to confirm the structure is the load-bearing half.)
+
 - **Hypothesis.** The stepwise prompt framing (the available actions, the escalation guidance in the journey `intent`/`guardrails`) is necessary for clean measurement - without it, axis06 recall and ASR are confounded by the agent not knowing escalation is an option.
 - **Toggle.** Prompt variants in `agents/llm_agent.py`: with vs without the explicit `escalate@high_risk_fork` guardrail surfaced; with vs without the action menu fully enumerated.
 - **Control vs treatment / metric.** axis06 recall, axis07 ASR, goal_reach. Control = full prompt; treatment = ablated prompt.
@@ -206,7 +208,7 @@ Each ablation: **hypothesis -> what is toggled -> control vs treatment -> metric
 | AB4 security defense + attack-type | **DONE** | `analysis/AB4-enforcement-ablation.md` — enforced ASR 0 vs detect-only ASR 1 (all 6); ASI01/02/06 inventory |
 | AB5 stepwise vs plan-replay | **DONE** | the seam-matters design justification |
 | AB6 max-steps / k sweep | **CHEAP** | pass^k and cost sensitivity curves |
-| AB7 prompt ablations | **NEW CODE** | recall/ASR under ablated guardrail prompt |
+| AB7 prompt ablations | **DONE** | `analysis/AB7-prompt-ablation.md` — textual guardrail redundant (recall 1.0->1.0); escalation signal is structural (reconciles A5) |
 | AB8 determinism / seed-invariance | **DONE** | `all_runs_deterministic: true` |
 | AB9 split difficulty | **CHEAP (low power)** | `pass_hat_k_by_split` (flagged underpowered) |
 | AB10 model family/size | **DONE (5 models)** | the non-monotone capability x reliability finding |
