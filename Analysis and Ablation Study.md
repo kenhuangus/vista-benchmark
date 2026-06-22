@@ -3,6 +3,7 @@
 | | |
 |---|---|
 | **Status** | Plan v1 - execution-ready; companion to `benchmark-design.md`, `architecture.md`, `experiments/README.md` |
+| **Executed** | P0/P1 analyses **A1-A8** are now generated deterministically by `analysis/analyze.py` -> **`analysis/RESULTS.md`** (pure stdlib, fixed-seed bootstrap, byte-reproducible). Threat §3 (axis10 discrimination) closed via the adversarial Dreamer. Still open: A5 calibration, AB1 oracle-blind scorer, AB2 single-policy baseline, AB4/AB7 (NEW CODE), and corpus growth. |
 | **Purpose** | Specify the analysis + ablation section of the VISTA Bench paper/leaderboard: the headline analyses, the ablation menu, the statistical methodology, and the execution order - grounded in the actual codebase and in how comparable agent benchmarks build their analysis sections. |
 | **Audience** | The team + a NeurIPS Datasets & Benchmarks reviewer. |
 | **Scope discipline** | Every analysis names its exact data source in the repo (a file path / a `vista_run.py` or `experiments/*.py` command / a `results/` artifact). Every related-benchmark idea cites a verified URL. Items are tagged **[DONE]** (already produced), **[CHEAP]** (reuses existing harness, no new code), or **[NEW CODE]** (needs new harness/runner code). |
