@@ -1,0 +1,35 @@
+{
+  "by_domain": {
+    "coding": 2,
+    "project": 2,
+    "research": 2
+  },
+  "by_split": {
+    "challenge": 1,
+    "dev": 1,
+    "test": 1,
+    "train": 3
+  },
+  "handauthored": 3,
+  "journey_ids": [
+    "project-stewardship-inquiry-001",
+    "coding-pr-review-001",
+    "research-synthesis-001",
+    "synth-project-train-001",
+    "synth-coding-train-001",
+    "synth-research-train-001"
+  ],
+  "schema_keys": [
+    "domain",
+    "event_trace",
+    "horizon",
+    "id",
+    "initial_route_state",
+    "intent",
+    "oracle_bindings",
+    "route_graph",
+    "split"
+  ],
+  "synthesized": 3,
+  "total": 6
+}
