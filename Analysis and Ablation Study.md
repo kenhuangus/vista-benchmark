@@ -119,6 +119,8 @@ Each ablation: **hypothesis -> what is toggled -> control vs treatment -> metric
 ### AB2 - Role ablations: isolate each role contribution **[partly DONE / partly NEW CODE]**
 
 - **Hypothesis.** Each Ranger role adds something no other can: Scout = foresight/calibration; Worker (sandbox) = privilege separation/security; Dreamer = axis10 (unreachable without it).
+> **EXECUTED** (`analysis/role_ablation.py` -> `analysis/AB2-role-ablation.md`, deterministic, $0). Each role contributes a distinct, non-substitutable capability: **Scout** = escalation calibration (ranger recall **1.0** vs naive **0.0** across all 6 journeys), **Worker** = privilege separation (the contract exposes **no** authority methods — escalate/authorize_edge/propose_graph_edit all absent), **Dreamer** = the only path to axis10 (a single-policy agent exposes no `propose_cycle` seam, so `run_rsi` has nothing to judge; only the full `LLMRanger` reaches axis10). Collapsing the three into one single-policy agent forfeits axis10 entirely.
+
 - **Toggle.** Four configs: (1) **single-policy plan+act** (one model that both plans and executes - the design-doc "Scout OFF / single-model baseline"); (2) **Scout-only** (plan, no stepwise execution seam); (3) **Scout + Worker** (plan + sandboxed stepwise act - exactly what `experiments/security_run.py`/`passk_run.py` drive); (4) **Scout + Worker + Dreamer** (full agent - adds `experiments/rsi_run.py`).
 - **Control vs treatment / metric.** axis06 recall + axis02 (Scout: config 1 vs 2/3); axis07 canary egress (Worker sandbox: does inline plan+act leak more than the separated Worker?); **axis10 is N/A for configs 1-3 and only defined for config 4** - that *is* the result.
 - **Confirm/refute.** Confirms "axis10 is unreachable without the Dreamer" because configs 1-3 have no self-edit proposal path (a single plan/act policy never proposes a self-edit - `experiments/README.md`). Confirms Scout value if config-1 under-escalates vs config-2/3.
@@ -197,7 +199,7 @@ Each ablation: **hypothesis -> what is toggled -> control vs treatment -> metric
 | Ablation | Status | Produces |
 |---|---|---|
 | AB1 oracle load-bearing | **DONE** (refutes H6 here) | `analysis/AB1-oracle-ablation.md` — excusal rule is load-bearing, oracle is not (this corpus) |
-| AB2 role isolation | DONE (cfg 3,4) / NEW CODE (cfg 1) | per-role contribution; axis10 N/A-without-Dreamer |
+| AB2 role isolation | **DONE** | `analysis/AB2-role-ablation.md` — Scout recall 1.0 vs 0.0, Worker no authority, axis10 reachable only via the Dreamer |
 | AB3 RSI gate ON/OFF | **DONE** | the axis10 headline (gate ON stable / OFF drifting) |
 | AB4 security defense + attack-type | **DONE** | `analysis/AB4-enforcement-ablation.md` — enforced ASR 0 vs detect-only ASR 1 (all 6); ASI01/02/06 inventory |
 | AB5 stepwise vs plan-replay | **DONE** | the seam-matters design justification |
