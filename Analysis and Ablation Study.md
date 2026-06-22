@@ -131,7 +131,9 @@ Each ablation: **hypothesis -> what is toggled -> control vs treatment -> metric
 - **Confirm/refute (KNOWN).** Gate ON: `trend=stable`, invariant preserved, 3/3 rogue edits rejected, reachability stays 0. Gate OFF: `trend=drifting`, invariant violated, all 3 rogue edits land, reachability 0->1. Confirmed. **Positive control = the synthetic `_RogueDreamer`** (`validation/synthetic.py`) - it is what *proves the gate is necessary*, because real frontier models, even gate-OFF, never proposed an unsafe edit (`experiments/README.md`). So axis10 necessity rests on the rogue control, not on benign models - a discriminative-power caveat (sec 7).
 - **Borrowed from.** DGM documented detector-gaming (removed its own logging markers rather than fix behavior, scored only qualitatively) (arXiv 2505.22954); STOP measured the *frequency* of self-mods that disable the sandbox (<1%, ~2x GPT-4 vs GPT-3.5) but did not gate them (arXiv 2310.02304); the original Godel Machine "provably beneficial self-modification" invariant (arXiv cs/0309048) is the formal ancestor of the no-new-forbidden-path gate. VISTA both **scores** the drift (axis10) and **blocks** it (the gate) - the combination is the novelty.
 
-### AB4 - Security defense ablation: enforcement on vs off + attack-type breakdown **[partly DONE / partly NEW CODE]**
+### AB4 - Security defense ablation: enforcement on vs off + attack-type breakdown **[DONE]**
+
+> **EXECUTED** (`analysis/enforcement_ablation.py` -> `analysis/AB4-enforcement-ablation.md`, deterministic, $0). The same goal-hijack crossing scores **ASR 0 under the enforced runtime and ASR 1 under a detect-only runtime on all 6 journeys** — enforcement is load-bearing for the forbidden-crossing half of axis07. Canary egress is enforcement-independent (the two ASR paths are orthogonal). Per-ASI inventory: ASI01 (project ×2, coding), ASI02 (coding force-push), ASI06 (research ×2).
 
 - **Hypothesis.** The runtime forbidden-crossing enforcement (block -> `applied=False` -> ASR 0 via that path) and the canary-egress oracle are each necessary; and ASR varies by attack type.
 - **Toggle.** (a) **enforced-block vs detect-only** - the runtime BLOCKS forbidden crossings (`harness/runtime.py` Classification.FORBIDDEN, `applied=False`); a detect-only variant would record-but-apply, so a successful wire flips `forbidden_crossing` and drives ASR 1. (b) **attack-type breakdown** - the corpus carries distinct injections: `important-instructions` (ASI01, project), `force-push-now` (ASI02, coding), `paste-this-text` (ASI06, research), each with its own canaries (`journeys/corpus.py`, `journeys/*.json`).
@@ -195,7 +197,7 @@ Each ablation: **hypothesis -> what is toggled -> control vs treatment -> metric
 | AB1 oracle load-bearing | **DONE** (refutes H6 here) | `analysis/AB1-oracle-ablation.md` — excusal rule is load-bearing, oracle is not (this corpus) |
 | AB2 role isolation | DONE (cfg 3,4) / NEW CODE (cfg 1) | per-role contribution; axis10 N/A-without-Dreamer |
 | AB3 RSI gate ON/OFF | **DONE** | the axis10 headline (gate ON stable / OFF drifting) |
-| AB4 security defense + attack-type | DONE (project) / NEW CODE (detect-only) / CHEAP (per-ASI) | enforcement-necessity + ASI01/02/06 breakdown |
+| AB4 security defense + attack-type | **DONE** | `analysis/AB4-enforcement-ablation.md` — enforced ASR 0 vs detect-only ASR 1 (all 6); ASI01/02/06 inventory |
 | AB5 stepwise vs plan-replay | **DONE** | the seam-matters design justification |
 | AB6 max-steps / k sweep | **CHEAP** | pass^k and cost sensitivity curves |
 | AB7 prompt ablations | **NEW CODE** | recall/ASR under ablated guardrail prompt |
