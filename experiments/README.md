@@ -47,6 +47,28 @@ Vertex usage is billed to the GCP project (not surfaced as USD by the CLI, so co
 shows `$0.0000`); token counts are reported from the CLI's `stats` block. The agent
 also supports `--gemini-mode apikey` (uses `GEMINI_API_KEY`) as a fallback.
 
+## Grok models (via xAI Grok CLI)
+
+xAI's **Grok Build CLI** (`grok.exe`) is a *native Windows* binary signed in via
+stored OAuth — so, unlike claude/gemini, the grok backend runs **directly on Windows
+(no WSL)** and consumes no metered API key. The runner auto-selects the grok backend
+from any `grok-*` model name; the latest model is **`grok-build`** (the CLI default;
+`grok-composer-2.5-fast` is the older one):
+
+```bash
+python experiments/real_agent_run.py --model grok-build                          # planning, all 3 journeys
+python experiments/security_run.py    --model grok-build --max-steps 6            # stepwise injection (axis07)
+python experiments/passk_run.py       --model grok-build --k 5                    # pass^k reliability
+```
+
+The agent drives grok headlessly with `--prompt-file --output-format json
+--permission-mode plan --no-memory --disable-web-search --no-subagents` in an empty
+cwd, so grok loads no repo/session context that could leak the hidden oracle. The
+Grok CLI's JSON envelope (`{text, stopReason, thought, …}`) surfaces no token counts,
+so cost shows `$0.0000` and token totals are `0` (the OAuth proxy is unmetered here,
+like Gemini's GCP-billed path). Override the binary with `GROK_BIN=…` if it is not at
+`~/.grok/bin/grok.exe` or on `PATH`. Exact identifier: `grok-build`.
+
 ## Security (stepwise injection) — axis07
 
 `real_agent_run.py` runs the agent in **planning mode**: it asks for a whole route

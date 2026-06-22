@@ -47,6 +47,18 @@ class LLMAgentError(RuntimeError):
 _NVM_NODE_BIN = "/home/kenhu/.nvm/versions/node/v24.15.0/bin"
 
 
+def _grok_bin() -> str:
+    """Resolve xAI's Grok Build CLI. Unlike the claude/gemini CLIs (which run inside
+    WSL on a subscription/Vertex login), ``grok.exe`` is a *Windows* binary signed in
+    via stored OAuth, so the grok backend runs natively (no ``wsl.exe``). Honor a
+    ``GROK_BIN`` override, else the known install path, else PATH."""
+    env = os.environ.get("GROK_BIN")
+    if env:
+        return env
+    known = os.path.join(os.path.expanduser("~"), ".grok", "bin", "grok.exe")
+    return known if os.path.exists(known) else "grok"
+
+
 def _win_to_wsl_path(path: str) -> str:
     """Translate a Windows path (``C:\\Users\\x``) to its WSL mount (``/mnt/c/Users/x``)."""
     p = path.replace("\\", "/")
@@ -121,9 +133,14 @@ class LLMAgent:
         # explicit "you may escalate at this fork" guidance, to test whether the
         # defensive scaffold is what produces axis06 recall or the model escalates anyway.
         self.prompt_ablation = prompt_ablation
-        # Backend = which CLI drives the model. Inferred from the model name when
-        # not given: gemini-* -> the Gemini CLI, everything else -> the Claude CLI.
-        self.backend = backend or ("gemini" if str(model).startswith("gemini") else "claude")
+        # Backend = which CLI drives the model. Inferred from the model name when not
+        # given: gemini-* -> the Gemini CLI (WSL/Vertex), grok-* -> xAI's Grok CLI
+        # (native Windows, OAuth), everything else -> the Claude CLI (WSL/subscription).
+        self.backend = backend or (
+            "gemini" if str(model).startswith("gemini")
+            else "grok" if str(model).startswith("grok")
+            else "claude"
+        )
         # How the Gemini CLI authenticates: 'vertex' (Vertex AI on a GCP project,
         # service-account key), 'apikey' (GEMINI_API_KEY), or 'gca' (the now-
         # discontinued Google-login tier). Vertex config falls back to env.
@@ -338,8 +355,13 @@ class LLMAgent:
     # CLI invocation (WSL, subscription auth, JSON envelope)
     # ------------------------------------------------------------------ #
     def _call_cli(self, prompt: str) -> dict[str, Any]:
-        """Run the model in WSL and return a normalized envelope ``{result, usage,
-        total_cost_usd, modelUsage}`` regardless of backend (claude | gemini)."""
+        """Run the model and return a normalized envelope ``{result, usage,
+        total_cost_usd, modelUsage}`` regardless of backend (claude | gemini | grok).
+
+        claude/gemini run inside WSL; grok is a native Windows binary, so it takes a
+        separate non-WSL path."""
+        if self.backend == "grok":
+            return self._call_grok(prompt)
         fd, win_path = tempfile.mkstemp(suffix=".prompt.txt", text=True)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
@@ -394,6 +416,85 @@ class LLMAgent:
         if self.backend == "gemini":
             return self._parse_gemini(proc.stdout)
         return self._parse_envelope(proc.stdout)
+
+    # ------------------------------------------------------------------ #
+    # grok backend (native Windows, OAuth proxy — no WSL, no API key)
+    # ------------------------------------------------------------------ #
+    def _call_grok(self, prompt: str) -> dict[str, Any]:
+        """Drive xAI's Grok Build CLI headlessly on Windows and return the shared
+        envelope shape. The prompt is fully self-contained (the visible graph + intent),
+        so grok must NOT load any repo/session context — we run it in an empty cwd with
+        ``--no-memory`` and ``--permission-mode plan`` (reads/writes nothing), single
+        turn, no web search, no subagents. The CLI's JSON envelope is
+        ``{text, stopReason, thought, ...}`` with no token counts, so usage is reported
+        as zero/$0 (the OAuth proxy is not metered here, like Gemini's GCP-billed path)."""
+        fd, win_path = tempfile.mkstemp(suffix=".prompt.txt", text=True)
+        # An empty, stable cwd so grok discovers no AGENTS.md / repo context that could
+        # leak the benchmark's hidden oracle into the agent's view.
+        cwd = os.path.join(tempfile.gettempdir(), "vista_grok_cwd")
+        os.makedirs(cwd, exist_ok=True)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(prompt)
+            cmd = [
+                _grok_bin(), "--prompt-file", win_path, "--output-format", "json",
+                "--permission-mode", "plan", "--no-memory", "--disable-web-search",
+                "--no-subagents", "--cwd", cwd, "-m", self.model,
+            ]
+            last_err = ""
+            for attempt in range(5):
+                if attempt:
+                    time.sleep(2.0 * attempt)
+                try:
+                    proc = subprocess.run(cmd, capture_output=True, text=True,
+                                          timeout=self.timeout)
+                except subprocess.TimeoutExpired:
+                    last_err = f"timeout after {self.timeout}s"
+                    continue
+                if proc.returncode != 0 or not (proc.stdout or "").strip():
+                    last_err = ((proc.stderr or "") + " " + (proc.stdout or "")).strip()[:500] \
+                        or f"exit {proc.returncode}"
+                    continue
+                # Parse INSIDE the loop: grok intermittently returns a 0-exit envelope
+                # with empty text ("stopReason":"Cancelled") — a transient proxy
+                # cancellation under rapid calls — which must be retried, not raised.
+                try:
+                    return self._parse_grok(proc.stdout)
+                except LLMAgentError as exc:
+                    last_err = str(exc)[:500]
+                    continue
+        finally:
+            try:
+                os.unlink(win_path)
+            except OSError:
+                pass
+        raise LLMAgentError(f"grok CLI failed after retries: {last_err}")
+
+    def _parse_grok(self, stdout: str) -> dict[str, Any]:
+        """Normalize the Grok CLI ``--output-format json`` envelope (``{text, stopReason,
+        thought, ...}``) into the shared shape. The reply is the ``text`` field; the
+        ``thought`` (reasoning) is ignored. No token counts are surfaced, so usage is
+        zero and cost $0."""
+        obj = self._loads_json_blob(stdout)
+        if obj is None:
+            raise LLMAgentError(f"grok: no JSON object in output: {stdout[:500]!r}")
+        text = ""
+        for key in ("text", "result", "response", "content", "output"):
+            v = obj.get(key)
+            if isinstance(v, str) and v.strip():
+                text = v
+                break
+        if not text:
+            raise LLMAgentError(f"grok: no reply text in envelope: {json.dumps(obj)[:600]}")
+        return {
+            "result": text,
+            "usage": {
+                "input_tokens": 0, "output_tokens": 0,
+                "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0,
+            },
+            "total_cost_usd": 0.0,
+            "modelUsage": {self.model: {"inputTokens": 0, "outputTokens": 0, "costUSD": 0.0}},
+        }
 
     def _bash_command(self, wsl_path: str) -> str:
         """The bash one-liner that runs the model headlessly (nvm node on PATH for

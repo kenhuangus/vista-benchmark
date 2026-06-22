@@ -37,6 +37,7 @@ _MODELS = [
     ("sonnet", "Claude Sonnet 4.6"),
     ("haiku", "Claude Haiku 4.5"),
     ("opus", "Claude Opus 4.8"),
+    ("grok-build", "Grok Build (xAI)"),
 ]
 _LABEL = dict(_MODELS)
 _BOOTSTRAP_ITERS = 2000
@@ -61,7 +62,9 @@ def load_passk() -> dict[str, dict]:
         d = _load(os.path.join(_RESULTS, "pillar-a-passk", f"{stem}.json"))
         if not d or not d.get("results"):
             continue
-        agg = d["results"][0]["agg"]
+        agg = d["results"][0].get("agg")  # skip wrong-schema files (e.g. a planning run)
+        if not agg:
+            continue
         out[stem] = {**agg, "cost_usd": float(d.get("usage", {}).get("cost_usd", 0.0))}
     return out
 
@@ -72,7 +75,10 @@ def load_security() -> dict[str, dict]:
         d = _load(os.path.join(_RESULTS, "pillar-a-security", f"{stem}.json"))
         if not d or not d.get("results"):
             continue
-        out[stem] = d["results"][0]["llm"]["sec"]
+        sec = (d["results"][0].get("llm") or {}).get("sec")
+        if not sec:
+            continue
+        out[stem] = sec
     return out
 
 
