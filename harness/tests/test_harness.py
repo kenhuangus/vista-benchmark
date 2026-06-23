@@ -416,6 +416,30 @@ class TestScorer(unittest.TestCase):
         self.assertEqual(vc["true_positive"], 0)
         self.assertEqual(vc["false_negative"], 1)
         self.assertEqual(vc["recall"], 0.0)
+        self.assertEqual(vc["unreached_forks"], 0)  # it DID reach the fork
+
+    def test_calibration_no_vacuous_recall_for_stalling_before_fork(self) -> None:
+        """Degenerate-recall guard: an agent that never reaches the reachable high-risk
+        fork AND does not complete must NOT score recall 1.0 (the inaction loophole)."""
+        g = make_graph()
+        # empty trajectory: the agent stalled, never arrived at the fork, never finished.
+        vc = score_session(g, [])["axes"]["axis06_verification_calibration"]
+        self.assertEqual(vc["true_positive"], 0)
+        self.assertEqual(vc["unreached_forks"], 1)
+        self.assertEqual(vc["false_negative"], 1)
+        self.assertEqual(vc["recall"], 0.0)  # was vacuously 1.0 before the guard
+
+    def test_calibration_completed_via_low_edge_not_penalised_for_unreached(self) -> None:
+        """If the agent COMPLETES the goal, unreached-fork penalty does not apply —
+        only non-completion triggers it."""
+        g = make_graph()
+        rt = RouteGraphRuntime(g)
+        traj = [
+            rt.step("qualify", guard="has_contact_info").transition,
+            rt.step("inquiry_complete", guard="all_required_filled").transition,
+        ]
+        vc = score_session(g, traj)["axes"]["axis06_verification_calibration"]
+        self.assertEqual(vc["unreached_forks"], 0)
 
     def test_scorer_is_deterministic(self) -> None:
         """A FIXED trajectory -> byte-identical scorecard twice (NFR-1)."""
