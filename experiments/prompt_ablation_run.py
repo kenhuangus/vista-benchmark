@@ -29,7 +29,9 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from agents.llm_agent import LLMAgent  # noqa: E402
+import time
+
+from agents.llm_agent import LLMAgent, LLMAgentError  # noqa: E402
 from agents.stepwise_adapter import StepwiseAdapter  # noqa: E402
 from contracts.adapter import Steering  # noqa: E402
 from journeys.loader import load_journey  # noqa: E402
@@ -48,45 +50,69 @@ def _axes(scorecard: dict) -> dict:
     }
 
 
-def _run_variant(journey, *, model, seed, gemini_mode, ablation, max_steps):
-    llm = LLMAgent(model=model, seed=seed, gemini_mode=gemini_mode,
-                   vertex_project=_VERTEX_PROJECT, vertex_location=_VERTEX_LOCATION,
-                   vertex_key=_VERTEX_KEY_WSL, prompt_ablation=ablation)
-    llm.set_journey_context(journey)
-    result = StepwiseAdapter(llm).run_session(journey, Steering(max_steps=max_steps))
-    return _axes(result.scorecard), llm.usage
+def _run_variant(journey, *, model, seed, gemini_mode, ablation, max_steps, tries=3):
+    """Run one arm, retrying the WHOLE variant on a sustained CLI failure. The agent
+    already retries individual calls; this adds variant-level resilience so a single
+    WSL E_UNEXPECTED glitch mid-sweep doesn't crash the entire multi-journey run."""
+    last_err = None
+    for attempt in range(tries):
+        if attempt:
+            time.sleep(10.0 * attempt)  # let a sustained WSL glitch clear
+        llm = LLMAgent(model=model, seed=seed, gemini_mode=gemini_mode,
+                       vertex_project=_VERTEX_PROJECT, vertex_location=_VERTEX_LOCATION,
+                       vertex_key=_VERTEX_KEY_WSL, prompt_ablation=ablation)
+        llm.set_journey_context(journey)
+        try:
+            result = StepwiseAdapter(llm).run_session(journey, Steering(max_steps=max_steps))
+            return _axes(result.scorecard), llm.usage
+        except LLMAgentError as exc:
+            last_err = exc
+    raise LLMAgentError(f"variant failed after {tries} tries (ablation={ablation}): {last_err}")
+
+
+# The three ablation arms: full prompt, textual guardrail removed (AB7), and the
+# structural escalation affordance removed (AB7 v2 — the HITL node/move hidden).
+_ARMS = [("full", None),
+         ("no_textual", "no_escalation_guardrail"),
+         ("no_structural", "no_escalation_structure")]
 
 
 def run(model, journey_paths, *, seed, gemini_mode, max_steps):
     rows, calls, cost = [], 0, 0.0
     for path in journey_paths:
         journey = load_journey(path)
-        full, u1 = _run_variant(journey, model=model, seed=seed, gemini_mode=gemini_mode,
-                                ablation=None, max_steps=max_steps)
-        ablated, u2 = _run_variant(journey, model=model, seed=seed, gemini_mode=gemini_mode,
-                                   ablation="no_escalation_guardrail", max_steps=max_steps)
-        calls += u1["calls"] + u2["calls"]
-        cost += u1["cost_usd"] + u2["cost_usd"]
-        rows.append({"journey": journey.get("id"), "full": full, "ablated": ablated})
+        row = {"journey": journey.get("id")}
+        for arm, ablation in _ARMS:
+            axes, u = _run_variant(journey, model=model, seed=seed, gemini_mode=gemini_mode,
+                                   ablation=ablation, max_steps=max_steps)
+            row[arm] = axes
+            calls += u["calls"]
+            cost += u["cost_usd"]
+        rows.append(row)
     return {"model": model, "results": rows,
             "usage": {"calls": calls, "cost_usd": cost}}
 
 
+def _mean(rows, arm, key="recall"):
+    return sum(r[arm][key] for r in rows) / len(rows)
+
+
 def print_report(rep):
-    print(f"\n=== VISTA AB7 prompt ablation (escalation guardrail): `{rep['model']}` ===\n")
-    full_r = [r["full"]["recall"] for r in rep["results"]]
-    abl_r = [r["ablated"]["recall"] for r in rep["results"]]
-    for r in rep["results"]:
-        f, a = r["full"], r["ablated"]
+    rows = rep["results"]
+    print(f"\n=== VISTA AB7 prompt ablation (escalation: textual vs structural): "
+          f"`{rep['model']}` ===\n")
+    for r in rows:
         print(f"[{r['journey']}]")
-        print(f"  full   : recall={f['recall']:.2f} asr={f['asr']:.2f} goal={'Y' if f['goal_reached'] else 'N'}")
-        print(f"  ablated: recall={a['recall']:.2f} asr={a['asr']:.2f} goal={'Y' if a['goal_reached'] else 'N'}")
-    fm = sum(full_r) / len(full_r)
-    am = sum(abl_r) / len(abl_r)
-    print(f"\nmean recall: full={fm:.2f} ablated={am:.2f} delta={fm - am:+.2f}")
-    print("=> escalation guardrail is " +
-          ("LOAD-BEARING (recall drops without it)" if fm - am > 0.1 else
-           "NOT load-bearing (model escalates from context)"))
+        for arm, _ in _ARMS:
+            a = r[arm]
+            print(f"  {arm:13}: recall={a['recall']:.2f} asr={a['asr']:.2f} "
+                  f"goal={'Y' if a['goal_reached'] else 'N'}")
+    fm, tm, sm = (_mean(rows, "full"), _mean(rows, "no_textual"), _mean(rows, "no_structural"))
+    print(f"\nmean recall: full={fm:.2f} no_textual={tm:.2f} no_structural={sm:.2f}")
+    print(f"  textual delta   = {fm - tm:+.2f} -> "
+          f"{'load-bearing' if fm - tm > 0.1 else 'redundant'}")
+    print(f"  structural delta = {fm - sm:+.2f} -> "
+          f"{'LOAD-BEARING' if fm - sm > 0.1 else 'not load-bearing'}")
     u = rep["usage"]
     print(f"--- calls={u['calls']} cost_usd=${u['cost_usd']:.4f} (Gemini => $0) ---")
 

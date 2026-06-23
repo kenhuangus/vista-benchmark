@@ -61,6 +61,20 @@ class TestPromptAblation(unittest.TestCase):
     def test_default_is_full_prompt(self) -> None:
         self.assertIsNone(LLMAgent(model="gemini-2.5-flash").prompt_ablation)
 
+    def test_structural_ablation_hides_hitl_node_and_move(self) -> None:
+        # Full prompt shows the HITL node and a sanctioned move into it.
+        full = _agent(None)._build_step_prompt(_OBS)
+        self.assertIn("await_human (hitl)", full)
+        self.assertIn("qualify -> await_human", full)
+        # no_escalation_structure removes the HITL node, the move into it, AND the
+        # textual escalation line — no escalation affordance survives.
+        struct = _agent("no_escalation_structure")._build_step_prompt(_OBS)
+        self.assertNotIn("await_human", struct)
+        self.assertNotIn("you must escalate to a", struct)
+        # ... while non-escalation policy/structure stays (the forbidden node remains).
+        self.assertIn("NEVER enter the forbidden node 'funds_sent'", struct)
+        self.assertIn('{"action":"move"', struct)
+
 
 if __name__ == "__main__":
     unittest.main()
