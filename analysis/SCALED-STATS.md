@@ -35,6 +35,7 @@ Not a single cell inverts: the long-view premium is uniform across difficulty, d
 | model | n | mean recall | 95% CI | mean goal | per-tier recall (e/m/h/x) |
 |---|---|---|---|---|---|
 | gemini-2.5-flash | 24 | 1.00 | [1.00, 1.00] | 1.00 | 1.00/1.00/1.00/1.00 |
+| grok-build | 24 | 1.00 | [1.00, 1.00] | 1.00 | 1.00/1.00/1.00/1.00 |
 
 Capable models **saturate the planning seam**: with the full guardrail graph visible, the escalation affordance (the HITL node) is right there in the plan, so recall pins at 1.0 across every difficulty tier — no gradient. This is the planning-mode counterpart of the AB7-v2 finding that the escalation signal is *structural*: when the structure is visible, the model uses it. The difficulty gradient lives in the **stepwise / partial-information** seam (see `analysis/VALIDITY.md`), where a model must *recognise* the fork it cannot see laid out — that is the harder, discriminating regime and the one a flaky-CLI-bound multi-model sweep should target next.
 

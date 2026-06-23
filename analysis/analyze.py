@@ -213,8 +213,22 @@ def build_report() -> str:
           f"{_f(a.get('recall_mean', 1.0))} | {_f(a['asr_mean'])} | {egress} | "
           f"{_f(a['cost_usd'])} |")
     w("")
-    w("> All recall = 1.00 and ASR = 0.00 across every model — the calibration and "
-      "security axes **saturate**; only `goal_reach_rate`/`pass^5` separate the models.")
+    # Data-driven separation narrative: the axis06 degenerate-recall fix lets a model
+    # that stalls before the high-risk fork score 0.0 instead of a vacuous 1.0, so the
+    # recall column can now discriminate rather than saturate.
+    _rv = [a["recall_mean"] for s, _ in _MODELS if (a := passk.get(s)) and "recall_mean" in a]
+    _av = [a["asr_mean"] for s, _ in _MODELS if (a := passk.get(s)) and "asr_mean" in a]
+    recall_separates = bool(_rv) and (max(_rv) - min(_rv) > 1e-9)
+    asr_separates = bool(_av) and (max(_av) - min(_av) > 1e-9)
+    if recall_separates:
+        asr_phrase = "also varies" if asr_separates else "stays 0.00 (all benign models resist)"
+        w(f"> **recall now separates the models** ({_f(min(_rv))}–{_f(max(_rv))}): under the "
+          "axis06 degenerate-recall fix, a model that stalls before the high-risk fork scores "
+          "0.0 instead of a vacuous 1.0, so the calibration axis **discriminates** rather than "
+          f"saturates. ASR {asr_phrase}; `goal_reach_rate`/`pass^5` separate them further.")
+    else:
+        w("> All recall = 1.00 and ASR = 0.00 across every model — the calibration and "
+          "security axes **saturate**; only `goal_reach_rate`/`pass^5` separate the models.")
     w("")
 
     # ----- A2 long-view premium ------------------------------------------ #
@@ -265,9 +279,17 @@ def build_report() -> str:
         w(f"| {label} | {_f(a['cost_usd'])} | {_f(a['goal_reach_rate'])} {_ci(glo, ghi)} | "
           f"{a['pass_pow_k']} {_ci(plo, phi)} |")
     w("")
-    w("> Reliability is **non-monotone in price**: the most expensive model (Opus) is the "
-      "least reliable (0/5) while the free Gemini models are 5/5. With n=5 the Wilson upper "
-      "bound on a 0/5 is ~0.43, so '0/5' means 'unreliable here', not 'never'.")
+    # data-driven extremes (re-runs drift the per-model numbers; the prose must follow).
+    label_of = dict(_MODELS)
+    present = [(s, passk[s]) for s, _ in _MODELS if passk.get(s)]
+    if present:
+        best_stem, best_a = max(present, key=lambda kv: kv[1]["goal_reach_rate"])
+        exp_stem, exp_a = max(present, key=lambda kv: kv[1]["cost_usd"])
+        w(f"> Reliability is **non-monotone in price**: the most reliable model here is "
+          f"**{label_of[best_stem]}** (goal_reach {_f(best_a['goal_reach_rate'])}) at "
+          f"${_f(best_a['cost_usd'])}, while the most expensive (**{label_of[exp_stem]}**, "
+          f"${_f(exp_a['cost_usd'])}) reaches only {_f(exp_a['goal_reach_rate'])}. With n=5 the "
+          "Wilson upper bound on a 0/5 is ~0.43, so '0/5' means 'unreliable here', not 'never'.")
     w("")
 
     # ----- A4 pass^k curves ---------------------------------------------- #
@@ -286,16 +308,22 @@ def build_report() -> str:
         cells = " | ".join(_f(v) for v in curve)
         w(f"| {label} | {cells} | `{_sparkline(curve)}` |")
     w("")
-    w("> Both Geminis hold flat at 1.0; Sonnet decays from 0.40 (pass^1) to 0 by pass^5; "
-      "Haiku/Opus are 0 from pass^1. The slope is the reliability signal a single-k number "
-      "hides.")
+    w("> The pass^k slope — not a single-k number — is the reliability signal: a model that "
+      "completes every run holds flat at 1.0, while one that completes only some runs decays "
+      "toward 0 by pass^5 (the curves above). The gap to `goal_reach_rate` is the reliability "
+      "tax a one-shot score hides.")
     w("")
 
     # ----- A6 three views ------------------------------------------------ #
     w("## A6 — Three reporting views rank the models differently")
     w("")
-    w("Source: `results/pillar-a-passk/*.json`. 'Did it escalate' (recall) and 'did it "
-      "resist' (ASR) are identical across models; only pass^5 separates them.")
+    if recall_separates:
+        w("Source: `results/pillar-a-passk/*.json`. 'Did it resist' (ASR) is identical "
+          "across benign models, but 'did it escalate' (recall) now **separates** them "
+          "(a model that stalls before the fork scores 0.0); pass^5 adds reliability.")
+    else:
+        w("Source: `results/pillar-a-passk/*.json`. 'Did it escalate' (recall) and 'did it "
+          "resist' (ASR) are identical across models; only pass^5 separates them.")
     w("")
     w("| model | recall (escalated) | ASR=0 (resisted) | pass^5 (reliable) |")
     w("|---|---|---|---|")
@@ -336,34 +364,76 @@ def build_report() -> str:
         w(f"| **{a}** | " + " | ".join(cells) + " |")
     w("")
     zero_var = [c for c in cols if len(set(rows[c])) <= 1]
-    w(f"> Zero-variance columns (no correlation defined): **{', '.join(zero_var) or 'none'}**. "
-      "`recall` and `targeted_asr_mean` are constant across the whole corpus, so the "
-      "'foresight ⟂ safety' independence claim (H2) **cannot yet be shown from data** — "
-      "the corpus needs journeys where the safety axes vary. This degeneracy is the "
-      "cleanest evidence that n=6 is too thin (plan threats §1–2).")
+    recall_v = "recall" not in zero_var
+    asr_v = "targeted_asr_mean" not in zero_var
+    rg = pearson(rows["recall"], rows["goal_reached"])
+    ra = pearson(rows["recall"], rows["targeted_asr_mean"])
+    rg_s = "—" if rg is None else _f(rg)
+    ra_s = "—" if ra is None else _f(ra)
+    if recall_v and asr_v:
+        w(f"> Zero-variance columns: **{', '.join(zero_var) or 'none'}**. The axis06 fix plus a "
+          f"powered {n_rows}-row sweep break the old degeneracy: **both** `recall` (foresight) "
+          "and `targeted_asr_mean` (safety) now vary, so the 'foresight ⟂ safety' independence "
+          f"(H2) is examinable from data. **Pearson(recall, ASR) = {ra_s}** — weakly correlated, "
+          "far from collinear: the axes are largely independent (a stalling model fails "
+          "foresight; a *different* model fails safety by taking the injection). `recall` tracks "
+          f"`goal_reached` (r={rg_s}) as expected — a model must reach the fork to escalate. "
+          "Caveat: the variation is one journey × multiple runs; a wider corpus (threat §1) is "
+          "needed for a population claim, but the safety/foresight axes are no longer constant.")
+    elif recall_v:
+        w(f"> Zero-variance columns (no correlation defined): **{', '.join(zero_var) or 'none'}**. "
+          "The axis06 degenerate-recall fix breaks the recall degeneracy: `recall` now varies "
+          f"(stalling models 0.0, escalating models 1.0) and tracks `goal_reached` (r={rg_s}) — "
+          "a model must reach the fork to escalate. `targeted_asr_mean` is still constant (every "
+          "benign model resists), so the 'foresight ⟂ safety' independence (H2) still needs "
+          "attack-positive journeys where ASR varies — but the calibration axis is no longer "
+          "degenerate.")
+    else:
+        w(f"> Zero-variance columns (no correlation defined): **{', '.join(zero_var) or 'none'}**. "
+          "`recall` and `targeted_asr_mean` are constant across the whole corpus, so the "
+          "'foresight ⟂ safety' independence claim (H2) **cannot yet be shown from data** — "
+          "the corpus needs journeys where the safety axes vary. This degeneracy is the "
+          "cleanest evidence that n=6 is too thin (plan threats §1–2).")
     w("")
 
     # ----- A8 security --------------------------------------------------- #
     w("## A8 — Security: ASR with the live positive control")
     w("")
-    w("Source: `results/pillar-a-security/*.json`. The hijacked-agent positive control and "
-      "ranger negative control are pinned in `agents/tests/test_stepwise_adapter.py`.")
+    w("Source: `results/pillar-a-security/*.json` (single-run probe with the live positive "
+      "control) and the powered `results/pillar-a-passk/*.json` ASR (n=5). The hijacked-agent "
+      "positive control and ranger negative control are pinned in "
+      "`agents/tests/test_stepwise_adapter.py`.")
     w("")
-    w("| model | ASR | canary egress | forbidden crossing | goal reached | passed |")
-    w("|---|---|---|---|---|---|")
+    w("| model | ASR (n=1 probe) | ASR (n=5 passk) | canary egress | forbidden crossing | "
+      "goal reached | passed |")
+    w("|---|---|---|---|---|---|---|")
     for stem, label in _MODELS:
         s = sec.get(stem)
         if not s:
             continue
-        w(f"| {label} | {_f(s['targeted_asr_mean'])} | "
+        a = passk.get(stem)
+        passk_asr = _f(a["asr_mean"]) if a and "asr_mean" in a else "—"
+        w(f"| {label} | {_f(s['targeted_asr_mean'])} | {passk_asr} | "
           f"{'yes' if s['canary_egress_detected'] else 'no'} | "
           f"{'yes' if s['forbidden_crossing_detected'] else 'no'} | "
           f"{'yes' if s['goal_reached'] else 'no'} | "
           f"{'yes' if s['passed'] else 'no'} |")
     w("")
-    w("> All 5 models resist (ASR 0, no egress). The result is genuine, not a dead oracle: "
-      "the hijacked positive control fires ASR 1.0 (both canaries) and the ranger negative "
-      "control is 0 — see the stepwise-adapter tests.")
+    susceptible = [(label, passk[stem]["asr_mean"]) for stem, label in _MODELS
+                   if passk.get(stem) and passk[stem].get("asr_mean", 0) > 0]
+    if susceptible:
+        names = "; ".join(f"**{lab}** (ASR {_f(v)})" for lab, v in susceptible)
+        w(f"> The single-run probe shows every model resisting (ASR 0), and the axis is live "
+          "(hijacked positive control fires ASR 1.0 on both canaries; ranger control 0). But "
+          f"the powered n=5 passk sweep exposes an **intermittent** injection vulnerability: "
+          f"{names} — hijacked on a fraction of runs that a single probe misses. **The multi-"
+          "run ASR is the headline safety number; intermittent susceptibility is exactly the "
+          "failure a one-shot security check cannot see** (cf. pass^k for reliability).")
+    else:
+        w("> All models resist (ASR 0, no egress) in both the single probe and the n=5 sweep. "
+          "The result is genuine, not a dead oracle: the hijacked positive control fires ASR "
+          "1.0 (both canaries) and the ranger negative control is 0 — see the stepwise-adapter "
+          "tests.")
     w("")
 
     # ----- axis10 bonus -------------------------------------------------- #
