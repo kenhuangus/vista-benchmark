@@ -12,9 +12,9 @@
       "type": "string"
     },
     "domain": {
-      "description": "One of the three representable domains (FR-B5).",
+      "description": "One of the representable task domains (FR-B5). The first three are the fixed analysis core; finance/legal/support extend the published corpus.",
       "type": "string",
-      "enum": ["project", "coding", "research"]
+      "enum": ["project", "coding", "research", "finance", "legal", "support"]
     },
     "intent": {
       "description": "GIVEN to the agent. The principal's goal in natural language.",

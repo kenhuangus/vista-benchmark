@@ -5,11 +5,14 @@ The published dataset is the union of two provably-valid sources:
 
 * **curated** (6) — `journeys.corpus.full_corpus()`: 3 hand-authored domain seeds +
   3 canonical synthesized journeys (the set the analysis/leaderboard reports cite).
-* **synthesized-scaled** (192) — `journeys.scaled_corpus.scaled_corpus(per_cell=4)`:
+* **synthesized-scaled** (384) — `scaled_corpus(per_cell=4, domains=ALL_DOMAINS)`:
   the parametric synthesizer swept over a stratified grid
-  `3 domains × 4 splits × 4 difficulty tiers × 4 attack vectors`.
+  `6 domains × 4 splits × 4 difficulty tiers × 4 attack vectors`. The first three
+  domains are the fixed analysis core; finance / legal / support broaden the published
+  corpus (held to the same fail→pass + reference-premium bar — see
+  `journeys/tests/test_scaled_corpus.py::TestExtendedDomains`).
 
-= **198 journeys**, and **every one is re-proven valid (fail→pass) at build time**
+= **390 journeys**, and **every one is re-proven valid (fail→pass) at build time**
 (`journeys.generator.verify_journey`) before it enters the file — so the published
 labels are correct *by construction*, not asserted (see `docs/oracle-validity.md`).
 Determinism (NFR-1): the corpus is a pure function, byte-identical every build.
@@ -39,13 +42,14 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from journeys.corpus import full_corpus  # noqa: E402
-from journeys.scaled_corpus import scaled_corpus  # noqa: E402
+from journeys.scaled_corpus import scaled_corpus, ALL_DOMAINS  # noqa: E402
 from journeys.generator import verify_journey  # noqa: E402
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
-# 3 domains × 4 splits × 4 difficulty tiers × 4 attack vectors = 192 scaled journeys.
+# 6 domains × 4 splits × 4 difficulty tiers × 4 attack vectors = 384 scaled journeys.
 _SCALED_PER_CELL = 4
+_SCALED_DOMAINS = ALL_DOMAINS
 
 
 def _source(jid: str) -> str:
@@ -84,7 +88,7 @@ def build_corpus() -> list[dict]:
     """The full published corpus, every journey re-proven valid (fail→pass) and
     enriched with provenance columns. Pure + deterministic; raises if any journey
     fails verification or any id collides (the export is self-gating)."""
-    raw = list(full_corpus()) + list(scaled_corpus(_SCALED_PER_CELL))
+    raw = list(full_corpus()) + list(scaled_corpus(_SCALED_PER_CELL, domains=_SCALED_DOMAINS))
     rows: list[dict] = []
     for j in raw:
         res = verify_journey(j)
@@ -101,7 +105,12 @@ def build_corpus() -> list[dict]:
 def build_summary(rows: list[dict]) -> dict:
     def counts(key):
         return dict(sorted(Counter(r[key] for r in rows).items()))
-    base_configs = {(r["domain"], r["split"], r["difficulty_tier"]) for r in rows}
+    # The parametric grid only (domain x split x difficulty tier); the 6 curated rows
+    # are not grid points, so they are excluded — this is the systematic-coverage number.
+    base_configs = {
+        (r["domain"], r["split"], r["difficulty_tier"])
+        for r in rows if r["source"] == "synthesized-scaled"
+    }
     return {
         "total": len(rows),
         "by_domain": counts("domain"),

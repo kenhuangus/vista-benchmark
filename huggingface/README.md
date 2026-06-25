@@ -53,7 +53,7 @@ The scorer, reference agent, and harness live in the
 ## What's in the dataset
 
 Each row is one **journey**: a long-horizon task encoded as a *sanctioned
-route-graph* plus a hidden answer key. **198 journeys**, and **every one is re-proven
+route-graph* plus a hidden answer key. **390 journeys**, and **every one is re-proven
 valid (fail→pass) at build time** — so the published labels are correct *by
 construction*, not asserted.
 
@@ -61,17 +61,17 @@ construction*, not asserted.
 |---|---|---|
 | `handauthored` | 3 | hand-written domain seeds (project / coding / research), contract-validated |
 | `synthesized-core` | 3 | the canonical synthesized journeys the leaderboard cites |
-| `synthesized-scaled` | 192 | the parametric synthesizer over a stratified grid (below) |
+| `synthesized-scaled` | 384 | the parametric synthesizer over a stratified grid (below) |
 
-The **synthesized-scaled** set is a `3 domains × 4 splits × 4 difficulty tiers × 4
-attack vectors` sweep (= 54 base task-configurations × 4 injected attacks). Difficulty
+The **synthesized-scaled** set is a `6 domains × 4 splits × 4 difficulty tiers × 4
+attack vectors` sweep (= 96 base task-configurations × 4 injected attacks). Difficulty
 is the number of hidden gold subgoals on the optimal walk (**3 → 6**, `easy → expert`):
 a longer optimal walk demands longer-horizon foresight. Coverage:
 
-- **domains** (66 each): project · coding · research
-- **splits** (~49–51 each): train · dev · test · challenge
-- **difficulty** (48 each + 6 curated): easy(3) · medium(4) · hard(5) · expert(6) subgoals
-- **attacks** — 9 of the 10 OWASP Agentic-Security categories: **ASI01–ASI09**
+- **domains** (64–66 each): project · coding · research _(the fixed analysis core)_ + finance · legal · support _(extend the published corpus, same validity bar)_
+- **splits** (~97–99 each): train · dev · test · challenge
+- **difficulty** (96 each + 6 curated): easy(3) · medium(4) · hard(5) · expert(6) subgoals
+- **attacks** — **all 10** OWASP Agentic-Security categories: **ASI01–ASI10**
 
 Every record also carries provenance columns for filtering — `source`,
 `difficulty_tier`, `num_subgoals`, `num_high_risk_forks`, `attack_asi`, `verified` —
@@ -145,20 +145,22 @@ the naive one **0.0**. Same pass/fail, opposite trustworthiness.
   prompt-injection resistance, and self-improvement safety against a single
   deterministic, by-construction-valid oracle. Research on the science of agent
   evaluation.
-- **Scale.** 198 journeys (6 curated + 192 synthesized) — comparable in size to
-  τ-bench (~165) and AgentDojo (~97). The corpus is **parametric**: the 192 derive from
-  a small, transparent set of domain templates × 4 difficulty tiers × 4 attack vectors,
-  so the count reflects *systematic coverage of those axes* rather than 198 independent
-  hand-written tasks. The generator (`journeys/scaled_corpus.py`) is open and extends to
-  more domains / attacks / tiers on demand.
+- **Scale.** 390 journeys (6 curated + 384 synthesized) — larger than τ-bench (~165) and
+  AgentDojo (~97). The corpus is **parametric**: the 384 derive from a small, transparent
+  set of 6 domain templates × 4 difficulty tiers × 4 attack vectors (= 96 base
+  task-configurations), so the count reflects *systematic coverage of those axes* rather
+  than 390 independent hand-written tasks. The generator (`journeys/scaled_corpus.py`) is
+  open and extends to more domains / attacks / tiers on demand.
 - **Validity.** Every journey is re-proven (fail→pass) at build time, and the long-view
   premium (careful vs naive on `axis06`) holds on **all** of them — the powered
   counterpart of the headline result. Internal validity (labels correct) and construct
   reliability (zero measurement variance) are established; external validity against a
   real-world agent benchmark is the stated open item (see `docs/oracle-validity.md` in
   the repo).
-- **Scope.** English; three white-collar domains (project / coding / research); injected
-  attacks map to OWASP **ASI01–ASI09** (ASI10 Rogue-Agents not yet covered).
+- **Scope.** English; six white-collar domains — project / coding / research (the fixed
+  analysis core) + finance / legal / support (extend the published corpus, held to the
+  same fail→pass + reference-premium bar). Injected attacks span all of OWASP
+  **ASI01–ASI10**.
 - **Not** a real-world PII dataset — all entities are synthetic (fictional account ids /
   `@*.test` addresses used as attack canaries).
 

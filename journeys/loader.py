@@ -34,7 +34,7 @@ _NODE_KINDS = {"task", "escape", "hitl", "absorbing", "forbidden"}
 _EDGE_AUTHORITIES = {"scout", "worker"}
 _EDGE_RISKS = {"low", "high"}
 _EVENT_TYPES = {"fact", "drift", "escalation_fork", "injection", "slow_burn"}
-_DOMAINS = {"project", "coding", "research"}
+_DOMAINS = {"project", "coding", "research", "finance", "legal", "support"}
 _SPLITS = {"train", "dev", "test", "challenge"}
 _INJECTION_CHANNELS = {"tool_output", "document", "message", "calendar"}
 

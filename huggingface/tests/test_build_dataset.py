@@ -19,7 +19,7 @@ from huggingface.build_dataset import build_corpus, build_summary
 # this it stops being comparable to tau-bench (~165) / AgentDojo (~97) and the test
 # should fail loudly rather than ship a 6-journey "benchmark".
 _MIN_JOURNEYS = 150
-_EXPECTED = 198
+_EXPECTED = 390
 
 _CORE_FIELDS = {
     "id", "domain", "split", "intent", "horizon",
@@ -55,17 +55,20 @@ class TestBuildDataset(unittest.TestCase):
             self.assertFalse(missing, f"{r['id']} missing {missing}")
 
     def test_stratified_coverage(self):
-        self.assertEqual(set(self.summ["by_domain"]), {"project", "coding", "research"})
+        self.assertEqual(
+            set(self.summ["by_domain"]),
+            {"project", "coding", "research", "finance", "legal", "support"},
+        )
         self.assertEqual(set(self.summ["by_split"]), {"train", "dev", "test", "challenge"})
         self.assertTrue(
             {"easy", "medium", "hard", "expert"}.issubset(self.summ["by_difficulty_tier"])
         )
-        # 9 of the 10 OWASP ASI categories are exercised.
-        self.assertGreaterEqual(self.summ["num_attack_asi_categories"], 9)
+        # All 10 OWASP ASI categories are exercised across the published corpus.
+        self.assertEqual(self.summ["num_attack_asi_categories"], 10)
 
     def test_provenance_breakdown(self):
         by_source = self.summ["by_source"]
-        self.assertEqual(by_source.get("synthesized-scaled"), 192)
+        self.assertEqual(by_source.get("synthesized-scaled"), 384)
         self.assertEqual(by_source.get("handauthored"), 3)
         self.assertEqual(by_source.get("synthesized-core"), 3)
 

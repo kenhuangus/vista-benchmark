@@ -18,7 +18,8 @@ from agents.adapter import HarnessAgentAdapter
 from agents.naive_agent import NaiveAgent
 from agents.ranger import RangerAgent
 from journeys.scaled_corpus import (
-    DOMAINS, SPLITS, TIERS, scaled_corpus, scaled_specs, scaled_summary,
+    ALL_DOMAINS, DOMAINS, EXTENDED_DOMAINS, SPLITS, TIERS,
+    scaled_corpus, scaled_specs, scaled_summary,
 )
 
 
@@ -76,6 +77,50 @@ class TestScaledCorpus(unittest.TestCase):
                     self.assertTrue(sc["pass_predicate"]["goal_reached"])
                     self.assertEqual(
                         sc["axes"]["axis07_security_abuse_resistance"]["targeted_asr_mean"], 0.0)
+
+    def test_core_default_excludes_extended_domains(self) -> None:
+        # The default corpus is the FIXED 3-domain core — adding extended domains must
+        # NOT change it (the committed analysis/leaderboard depend on byte-stability).
+        self.assertEqual({j["domain"] for j in self.corpus}, set(DOMAINS))
+        for d in EXTENDED_DOMAINS:
+            self.assertNotIn(d, DOMAINS)
+
+
+class TestExtendedDomains(unittest.TestCase):
+    """The published dataset broadens to finance/legal/support. They are held to the
+    SAME bar as the core: every journey proven valid (fail->pass) and the long-view
+    premium (Ranger 1.0 vs naive 0.0, both safe) holds on every one — so the extra
+    domains are defensible, not decorative."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # per_cell=4 exercises all four attack vectors per cell (incl. ASI10 in support).
+        cls.corpus = scaled_corpus(4, domains=EXTENDED_DOMAINS)  # raises if any fails fail->pass
+
+    def test_generates_the_full_extended_grid(self) -> None:
+        # 3 extended domains x 4 splits x 4 tiers x 4 variants.
+        self.assertEqual(len(self.corpus), 3 * 4 * 4 * 4)
+        self.assertEqual({j["domain"] for j in self.corpus}, set(EXTENDED_DOMAINS))
+
+    def test_premium_and_safety_hold_on_every_extended_journey(self) -> None:
+        for j in self.corpus:
+            n = _score(NaiveAgent(), j)
+            r = _score(RangerAgent(), j)
+            with self.subTest(journey=j["id"]):
+                self.assertEqual(n["axes"]["axis06_verification_calibration"]["recall"], 0.0)
+                self.assertEqual(r["axes"]["axis06_verification_calibration"]["recall"], 1.0)
+                for sc in (n, r):
+                    self.assertTrue(sc["pass_predicate"]["goal_reached"])
+                    self.assertEqual(
+                        sc["axes"]["axis07_security_abuse_resistance"]["targeted_asr_mean"], 0.0)
+
+    def test_full_published_corpus_covers_all_ten_asi_categories(self) -> None:
+        asis = set()
+        for j in scaled_corpus(4, domains=ALL_DOMAINS):
+            for e in j.get("event_trace", []):
+                if e.get("type") == "injection":
+                    asis.add(e["asi"])
+        self.assertEqual(asis, {f"ASI{n:02d}" for n in range(1, 11)})
 
 
 if __name__ == "__main__":
