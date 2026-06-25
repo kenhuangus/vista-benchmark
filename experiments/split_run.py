@@ -28,6 +28,7 @@ from contracts.adapter import Steering  # noqa: E402
 from agents.adapter import HarnessAgentAdapter  # noqa: E402
 from agents.naive_agent import NaiveAgent  # noqa: E402
 from agents.ranger import RangerAgent  # noqa: E402
+from agents.llm_agent import LLMAgent, LLMAgentError  # noqa: E402
 from journeys.corpus import full_corpus  # noqa: E402
 from journeys.scaled_corpus import scaled_corpus, ALL_DOMAINS, SPLITS  # noqa: E402
 
@@ -119,6 +120,82 @@ def run(split: str, agents: list[str]) -> dict:
     return out
 
 
+def _sample(journeys: list[dict], per_dt: int, tiers: set) -> list[dict]:
+    """First ``per_dt`` variants of each (domain, tier); per_dt<=0 = all. Optional tier filter."""
+    picked, seen = [], {}
+    for j in journeys:
+        t = _tier(j["id"])
+        if tiers and t not in tiers:
+            continue
+        if per_dt <= 0:
+            picked.append(j)
+            continue
+        key = (j["domain"], t)
+        if seen.get(key, 0) < per_dt:
+            seen[key] = seen.get(key, 0) + 1
+            picked.append(j)
+    return picked
+
+
+def run_model(split: str, model: str, *, per_dt: int, tiers: set, seed: int) -> dict:
+    """Drive a REAL LLM (e.g. grok-build) in the Scout/planning seat over a split sample.
+
+    Per-journey failures (CLI flakes) are caught and recorded, not fatal — measurement, not
+    a pass/fail gate (a real model is not expected to be perfect like the reference Ranger)."""
+    journeys = [j for j in published_corpus() if j["split"] == split]
+    sample = _sample(journeys, per_dt, tiers)
+    llm = LLMAgent(model=model, seed=seed)
+    rows, failures = [], []
+    for j in sample:
+        if hasattr(llm, "set_journey_context"):
+            llm.set_journey_context(j)
+        try:
+            sc = HarnessAgentAdapter(llm).run_session(
+                j, j.get("initial_route_state", {}), Steering(seed=seed)).scorecard
+            ax = sc["axes"]
+            cal = ax["axis06_verification_calibration"]
+            sec = ax["axis07_security_abuse_resistance"]
+            rows.append({
+                "journey": j["id"], "domain": j["domain"], "tier": _tier(j["id"]),
+                "passed": bool(sc["pass_predicate"]["passed"]),
+                "goal": bool(ax["axis01_goal_progress"]["goal_reached"]),
+                "recall": cal["recall"], "precision": cal["precision"],
+                "asr": sec.get("targeted_asr_mean", 0.0),
+                "progress": ax["axis02_foresight"]["progress_rate"],
+            })
+        except LLMAgentError as exc:
+            failures.append({"journey": j["id"], "error": str(exc)[:200]})
+    return {"split": split, "model": model, "n_sampled": len(sample),
+            "rows": rows, "failures": failures, "usage": getattr(llm, "usage", {}) or {}}
+
+
+def _print_model(res: dict) -> None:
+    rows, fails = res["rows"], res["failures"]
+    print(f"\n{'='*70}\nVISTA real-LLM run — model '{res['model']}'  (Scout seat)  split '{res['split']}'")
+    print(f"{len(rows)} scored, {len(fails)} failed (of {res['n_sampled']} sampled)\n{'='*70}")
+    if rows:
+        def m(k):
+            return _mean([float(r[k]) for r in rows])
+        print(f"  passed (binary)   : {_mean([1.0 if r['passed'] else 0.0 for r in rows])*100:.0f}%")
+        print(f"  goal reached      : {_mean([1.0 if r['goal'] else 0.0 for r in rows])*100:.0f}%")
+        print(f"  mean axis06 recall: {m('recall'):.3f}   precision: {m('precision'):.3f}   (reference Ranger = 1.000)")
+        print(f"  resists injection : {_mean([1.0 if r['asr']==0.0 else 0.0 for r in rows])*100:.0f}%  (targeted ASR 0)")
+        print(f"  mean foresight    : {m('progress'):.3f}  (subgoal progress)")
+        print(f"  recall by domain  : {_fmt_breakdown(rows,'domain')}")
+        print(f"  recall by tier    : {_fmt_breakdown(rows,'tier')}")
+    u = res["usage"]
+    print(f"  usage             : {u.get('calls','?')} calls, ${u.get('cost_usd',0.0):.4f}")
+    for fl in fails[:6]:
+        print(f"  ✗ {fl['journey']}: {fl['error'][:110]}")
+    if rows:
+        print("\n  journey                                | pass goal recall prec  asr")
+        print("  " + "-"*64)
+        for r in rows:
+            print(f"  {r['journey']:<38}|  {'Y' if r['passed'] else 'N'}   {'Y' if r['goal'] else 'N'}    "
+                  f"{r['recall']:.2f}  {r['precision']:.2f} {r['asr']:.2f}")
+    print(f"\n{'='*70}")
+
+
 def _print_report(res: dict) -> None:
     split, n = res["split"], res["n_journeys"]
     print(f"\n{'='*70}\nVISTA reference run — split '{split}'  ({n} journeys)\n{'='*70}")
@@ -155,8 +232,28 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="VISTA full reference run over one split.")
     p.add_argument("--split", choices=list(SPLITS), default="test")
     p.add_argument("--agent", choices=["ranger", "naive", "both"], default="both")
+    p.add_argument("--model", default=None,
+                   help="drive a REAL LLM in the Scout seat instead of the reference agents "
+                        "(e.g. grok-build, gemini-2.5-flash). Implies a sampled, measured run.")
+    p.add_argument("--per-domain-tier", type=int, default=1,
+                   help="for --model: variants per (domain, tier); 0 = the whole split")
+    p.add_argument("--tiers", default="",
+                   help="for --model: restrict to these tiers, e.g. 'easy,expert' (default all)")
+    p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", default=None, help="optional JSON results path")
     args = p.parse_args(argv)
+
+    if args.model:
+        tiers = {t.strip() for t in args.tiers.split(",") if t.strip()}
+        res = run_model(args.split, args.model, per_dt=args.per_domain_tier, tiers=tiers, seed=args.seed)
+        _print_model(res)
+        if args.out:
+            os.makedirs(os.path.dirname(args.out), exist_ok=True)
+            with open(args.out, "w", encoding="utf-8") as fh:
+                json.dump(res, fh, indent=2)
+            print(f"wrote {args.out}")
+        return 0
+
     agents = ["naive", "ranger"] if args.agent == "both" else [args.agent]
     res = run(args.split, agents)
     _print_report(res)
