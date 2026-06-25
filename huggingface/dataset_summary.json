@@ -1,35 +1,71 @@
 {
+  "all_verified": true,
+  "by_attack_asi": {
+    "ASI01": 19,
+    "ASI02": 17,
+    "ASI03": 32,
+    "ASI04": 16,
+    "ASI05": 16,
+    "ASI06": 34,
+    "ASI07": 16,
+    "ASI08": 16,
+    "ASI09": 32
+  },
+  "by_difficulty_tier": {
+    "curated": 6,
+    "easy": 48,
+    "expert": 48,
+    "hard": 48,
+    "medium": 48
+  },
   "by_domain": {
-    "coding": 2,
-    "project": 2,
-    "research": 2
+    "coding": 66,
+    "project": 66,
+    "research": 66
+  },
+  "by_source": {
+    "handauthored": 3,
+    "synthesized-core": 3,
+    "synthesized-scaled": 192
   },
   "by_split": {
-    "challenge": 1,
-    "dev": 1,
-    "test": 1,
-    "train": 3
+    "challenge": 49,
+    "dev": 49,
+    "test": 49,
+    "train": 51
   },
-  "handauthored": 3,
-  "journey_ids": [
+  "journey_ids_sample": [
     "project-stewardship-inquiry-001",
     "coding-pr-review-001",
     "research-synthesis-001",
     "synth-project-train-001",
     "synth-coding-train-001",
-    "synth-research-train-001"
+    "synth-research-train-001",
+    "scaled-project-train-easy-00",
+    "scaled-project-train-easy-01",
+    "scaled-project-train-easy-02",
+    "scaled-project-train-easy-03",
+    "scaled-project-train-medium-00",
+    "scaled-project-train-medium-01"
   ],
+  "num_attack_asi_categories": 9,
+  "num_base_task_configurations": 54,
   "schema_keys": [
+    "attack_asi",
+    "difficulty_tier",
     "domain",
     "event_trace",
     "horizon",
     "id",
     "initial_route_state",
     "intent",
+    "num_high_risk_forks",
+    "num_subgoals",
     "oracle_bindings",
     "route_graph",
-    "split"
+    "source",
+    "split",
+    "verified"
   ],
-  "synthesized": 3,
-  "total": 6
+  "total": 198
 }

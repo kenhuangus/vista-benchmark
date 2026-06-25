@@ -53,28 +53,36 @@ The scorer, reference agent, and harness live in the
 ## What's in the dataset
 
 Each row is one **journey**: a long-horizon task encoded as a *sanctioned
-route-graph* plus a hidden answer key. 6 journeys span 3 domains and 4 splits.
+route-graph* plus a hidden answer key. **198 journeys**, and **every one is re-proven
+valid (fail→pass) at build time** — so the published labels are correct *by
+construction*, not asserted.
 
-| journey id | domain | split | nodes | edges | injected attack |
-|---|---|---|---|---|---|
-| `project-stewardship-inquiry-001` | project | dev | 6 | 6 | ASI01 (goal hijack → wire funds) |
-| `coding-pr-review-001` | coding | test | 7 | 7 | ASI01 (goal hijack) |
-| `research-synthesis-001` | research | challenge | 7 | 7 | ASI06 (plagiarized text) |
-| `synth-project-train-001` | project | train | 7 | 7 | ASI01 (wire funds) |
-| `synth-coding-train-001` | coding | train | 8 | 8 | ASI02 (force-push to prod) |
-| `synth-research-train-001` | research | train | 8 | 8 | ASI06 (unattributed paste) |
+| source | count | how it's made |
+|---|---|---|
+| `handauthored` | 3 | hand-written domain seeds (project / coding / research), contract-validated |
+| `synthesized-core` | 3 | the canonical synthesized journeys the leaderboard cites |
+| `synthesized-scaled` | 192 | the parametric synthesizer over a stratified grid (below) |
 
-- **3 hand-authored seeds** (project / coding / research), each contract-validated.
-- **3 synthesized journeys** (the `train` split), each *proven valid* by a
-  generate-with-verifier: an `(init, solution, assertion)` triple where the
-  assertion fails on the empty initial state and passes only after the optimal
-  walk (the fail→pass validity gap).
+The **synthesized-scaled** set is a `3 domains × 4 splits × 4 difficulty tiers × 4
+attack vectors` sweep (= 54 base task-configurations × 4 injected attacks). Difficulty
+is the number of hidden gold subgoals on the optimal walk (**3 → 6**, `easy → expert`):
+a longer optimal walk demands longer-horizon foresight. Coverage:
+
+- **domains** (66 each): project · coding · research
+- **splits** (~49–51 each): train · dev · test · challenge
+- **difficulty** (48 each + 6 curated): easy(3) · medium(4) · hard(5) · expert(6) subgoals
+- **attacks** — 9 of the 10 OWASP Agentic-Security categories: **ASI01–ASI09**
+
+Every record also carries provenance columns for filtering — `source`,
+`difficulty_tier`, `num_subgoals`, `num_high_risk_forks`, `attack_asi`, `verified` —
+alongside the journey fields below. Full breakdown in `dataset_summary.json`.
 
 ```python
 from datasets import load_dataset
 
-ds = load_dataset("<user>/vista-bench-corpus")   # splits: train / dev / test / challenge
-ds["dev"][0]["id"]                               # 'project-stewardship-inquiry-001'
+ds = load_dataset("<user>/vista-bench-corpus")        # splits: train / dev / test / challenge
+expert = ds["test"].filter(lambda r: r["difficulty_tier"] == "expert")
+asi01  = ds["train"].filter(lambda r: r["attack_asi"] == "ASI01")
 ```
 
 (Or read the line-delimited JSON directly: `vista_corpus.jsonl`, or per-split files
@@ -135,14 +143,24 @@ the naive one **0.0**. Same pass/fail, opposite trustworthiness.
 
 - **Use.** Benchmarking long-horizon agent foresight, calibrated escalation,
   prompt-injection resistance, and self-improvement safety against a single
-  deterministic oracle. Research on the science of agent evaluation.
-- **Scale.** 6 journeys — a *seed* corpus, sized for an auditable oracle and
-  human validation, not large-scale training. The synthesizer
-  (`journeys/synth.py` in the repo) generates more on demand.
-- **Scope.** English; three white-collar domains (project / coding / research).
-  The injected attacks map to the OWASP Agentic-Security (ASI) taxonomy.
-- **Not** a real-world PII dataset — all entities are synthetic
-  (`@example.test`, fictional account ids used as attack canaries).
+  deterministic, by-construction-valid oracle. Research on the science of agent
+  evaluation.
+- **Scale.** 198 journeys (6 curated + 192 synthesized) — comparable in size to
+  τ-bench (~165) and AgentDojo (~97). The corpus is **parametric**: the 192 derive from
+  a small, transparent set of domain templates × 4 difficulty tiers × 4 attack vectors,
+  so the count reflects *systematic coverage of those axes* rather than 198 independent
+  hand-written tasks. The generator (`journeys/scaled_corpus.py`) is open and extends to
+  more domains / attacks / tiers on demand.
+- **Validity.** Every journey is re-proven (fail→pass) at build time, and the long-view
+  premium (careful vs naive on `axis06`) holds on **all** of them — the powered
+  counterpart of the headline result. Internal validity (labels correct) and construct
+  reliability (zero measurement variance) are established; external validity against a
+  real-world agent benchmark is the stated open item (see `docs/oracle-validity.md` in
+  the repo).
+- **Scope.** English; three white-collar domains (project / coding / research); injected
+  attacks map to OWASP **ASI01–ASI09** (ASI10 Rogue-Agents not yet covered).
+- **Not** a real-world PII dataset — all entities are synthetic (fictional account ids /
+  `@*.test` addresses used as attack canaries).
 
 ---
 
