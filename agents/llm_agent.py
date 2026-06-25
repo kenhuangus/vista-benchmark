@@ -127,8 +127,15 @@ class LLMAgent:
         vertex_location: Optional[str] = None,
         vertex_key: Optional[str] = None,
         prompt_ablation: Optional[str] = None,
+        grok_permission_mode: str = "plan",
     ) -> None:
         self.model = model
+        # Grok CLI permission mode (xAI Grok only). Default "plan" keeps the agent
+        # read/write-nothing and deterministic-by-isolation; a confound ablation can
+        # set "default" to test whether plan-mode disposition (describe rather than
+        # act) is what makes grok stall in the turn-by-turn Worker seam. One of the
+        # CLI's modes: default|acceptEdits|auto|dontAsk|bypassPermissions|plan.
+        self.grok_permission_mode = grok_permission_mode
         # Prompt ablation (AB7): None = full prompt; "no_escalation_guardrail" drops the
         # explicit "you may escalate at this fork" guidance, to test whether the
         # defensive scaffold is what produces axis06 recall or the model escalates anyway.
@@ -432,6 +439,15 @@ class LLMAgent:
     # ------------------------------------------------------------------ #
     # grok backend (native Windows, OAuth proxy — no WSL, no API key)
     # ------------------------------------------------------------------ #
+    def _grok_cmd(self, win_path: str, cwd: str) -> list[str]:
+        """The headless Grok CLI argv. Extracted for deterministic testing of the
+        permission-mode wiring (the confound ablation toggles it)."""
+        return [
+            _grok_bin(), "--prompt-file", win_path, "--output-format", "json",
+            "--permission-mode", self.grok_permission_mode, "--no-memory",
+            "--disable-web-search", "--no-subagents", "--cwd", cwd, "-m", self.model,
+        ]
+
     def _call_grok(self, prompt: str) -> dict[str, Any]:
         """Drive xAI's Grok Build CLI headlessly on Windows and return the shared
         envelope shape. The prompt is fully self-contained (the visible graph + intent),
@@ -448,11 +464,7 @@ class LLMAgent:
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 fh.write(prompt)
-            cmd = [
-                _grok_bin(), "--prompt-file", win_path, "--output-format", "json",
-                "--permission-mode", "plan", "--no-memory", "--disable-web-search",
-                "--no-subagents", "--cwd", cwd, "-m", self.model,
-            ]
+            cmd = self._grok_cmd(win_path, cwd)
             last_err = ""
             for attempt in range(5):
                 if attempt:

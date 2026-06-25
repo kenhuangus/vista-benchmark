@@ -39,6 +39,8 @@ from agents.llm_agent import LLMAgent  # noqa: E402
 from agents.stepwise_adapter import StepwiseAdapter, PlanReplayAgent  # noqa: E402
 from contracts.adapter import Steering  # noqa: E402
 from journeys.loader import load_journey  # noqa: E402
+from journeys.corpus import full_corpus  # noqa: E402
+from journeys.scaled_corpus import scaled_corpus, ALL_DOMAINS  # noqa: E402
 from experiments.real_agent_run import (  # noqa: E402
     _VERTEX_PROJECT, _VERTEX_LOCATION, _VERTEX_KEY_WSL,
 )
@@ -46,6 +48,31 @@ from experiments.security_run import _sec  # noqa: E402
 
 # The cliff lives on the project journey (the injection + the await_human hold).
 _DEFAULT_JOURNEY = os.path.join(_REPO_ROOT, "journeys", "project_inquiry_dev.json")
+
+
+def _tier(jid: str) -> str:
+    """Difficulty tier from a scaled journey id; 'curated' for the seed journeys."""
+    return jid.rsplit("-", 2)[1] if jid.startswith("scaled-") else "curated"
+
+
+def _published_corpus() -> list[dict]:
+    """The same 390-journey published corpus the HF dataset exports — so a stepwise
+    pass^k run can generalize beyond the single seed journey, by id, reproducibly."""
+    return list(full_corpus()) + list(scaled_corpus(4, domains=ALL_DOMAINS))
+
+
+def _resolve_journeys(paths, ids):
+    """Journeys to evaluate: explicit corpus ids (reproducible generalization sample),
+    else file paths, else the single canonical cliff journey."""
+    if ids:
+        lut = {j["id"]: j for j in _published_corpus()}
+        missing = [i for i in ids if i not in lut]
+        if missing:
+            raise SystemExit(f"unknown journey ids (not in published corpus): {missing}")
+        return [lut[i] for i in ids]
+    if paths:
+        return [load_journey(p) for p in paths]
+    return [load_journey(_DEFAULT_JOURNEY)]
 
 
 def _agg(secs):
@@ -68,14 +95,13 @@ def _agg(secs):
     }
 
 
-def run(model, journey_paths, *, k, seed, gemini_mode, max_steps):
+def run(model, journeys, *, k, seed, gemini_mode, max_steps, grok_permission_mode="plan"):
     llm = LLMAgent(model=model, seed=seed, gemini_mode=gemini_mode,
                    vertex_project=_VERTEX_PROJECT, vertex_location=_VERTEX_LOCATION,
-                   vertex_key=_VERTEX_KEY_WSL)
+                   vertex_key=_VERTEX_KEY_WSL, grok_permission_mode=grok_permission_mode)
     steering = Steering(max_steps=max_steps)
     rows = []
-    for path in journey_paths:
-        journey = load_journey(path)
+    for journey in journeys:
         ranger_sc = StepwiseAdapter(
             PlanReplayAgent(RangerAgent())
         ).run_session(journey, steering).scorecard
@@ -86,9 +112,12 @@ def run(model, journey_paths, *, k, seed, gemini_mode, max_steps):
             secs.append(_sec(sc))
         rows.append({
             "journey": journey.get("id"), "domain": journey.get("domain"),
+            "difficulty_tier": _tier(journey.get("id", "")),
             "ranger": _sec(ranger_sc), "agg": _agg(secs), "runs": secs,
         })
     return {"model": model, "k": k, "max_steps": max_steps,
+            "permission_mode": grok_permission_mode if str(model).startswith("grok") else None,
+            "journey_ids": [j.get("id") for j in journeys],
             "results": rows, "usage": llm.usage}
 
 
@@ -118,15 +147,27 @@ def main(argv=None):
     p.add_argument("--model", default="gemini-2.5-pro")
     p.add_argument("--k", type=int, default=5)
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--journeys", nargs="*", default=None)
+    p.add_argument("--journeys", nargs="*", default=None, help="explicit journey file paths")
+    p.add_argument("--journey-ids", nargs="*", default=None,
+                   help="select journeys from the published corpus by id (reproducible "
+                        "generalization sample beyond the single seed journey)")
+    p.add_argument("--grok-permission-mode", default="plan",
+                   choices=["default", "acceptEdits", "auto", "dontAsk",
+                            "bypassPermissions", "plan"],
+                   help="Grok CLI permission mode (confound ablation: 'default' lets it "
+                        "act, isolating plan-mode disposition as the stepwise-stall cause)")
     p.add_argument("--gemini-mode", default="vertex", choices=["vertex", "apikey", "gca"])
     p.add_argument("--max-steps", type=int, default=6)
     p.add_argument("--out", default=None)
     args = p.parse_args(argv)
-    rep = run(args.model, args.journeys or [_DEFAULT_JOURNEY], k=args.k, seed=args.seed,
-              gemini_mode=args.gemini_mode, max_steps=args.max_steps)
+    journeys = _resolve_journeys(args.journeys, args.journey_ids)
+    rep = run(args.model, journeys, k=args.k, seed=args.seed,
+              gemini_mode=args.gemini_mode, max_steps=args.max_steps,
+              grok_permission_mode=args.grok_permission_mode)
     print_report(rep)
     if args.out:
+        if os.path.dirname(args.out):
+            os.makedirs(os.path.dirname(args.out), exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as fh:
             json.dump(rep, fh, indent=2, sort_keys=True)
         print(f"wrote {args.out}")

@@ -31,6 +31,20 @@ class TestGrokBackendInference(unittest.TestCase):
     def test_explicit_backend_override_wins(self) -> None:
         self.assertEqual(LLMAgent(model="grok-build", backend="claude").backend, "claude")
 
+    def test_permission_mode_defaults_to_plan_and_reaches_argv(self) -> None:
+        agent = LLMAgent(model="grok-build")
+        self.assertEqual(agent.grok_permission_mode, "plan")
+        cmd = agent._grok_cmd("/tmp/p.txt", "/tmp/cwd")
+        self.assertIn("--permission-mode", cmd)
+        self.assertEqual(cmd[cmd.index("--permission-mode") + 1], "plan")
+
+    def test_permission_mode_override_reaches_argv(self) -> None:
+        # The confound ablation: drive grok in an action-permitting mode to isolate
+        # whether plan-mode disposition is what makes it stall in the Worker seam.
+        agent = LLMAgent(model="grok-build", grok_permission_mode="default")
+        cmd = agent._grok_cmd("/tmp/p.txt", "/tmp/cwd")
+        self.assertEqual(cmd[cmd.index("--permission-mode") + 1], "default")
+
     def test_grok_bin_resolution_honours_env(self) -> None:
         prev = os.environ.get("GROK_BIN")
         os.environ["GROK_BIN"] = "/custom/grok"
