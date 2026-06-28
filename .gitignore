@@ -31,3 +31,4 @@ results/
 .DS_Store
 .idea/
 .vscode/
+submissions/arxiv/*.tar.gz
