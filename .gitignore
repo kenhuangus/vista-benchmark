@@ -32,3 +32,9 @@ results/
 .idea/
 .vscode/
 submissions/arxiv/*.tar.gz
+submissions/arxiv/*.aux
+submissions/arxiv/*.log
+submissions/arxiv/*.bbl
+submissions/arxiv/*.blg
+submissions/arxiv/*.out
+submissions/arxiv/vista_arxiv.pdf
