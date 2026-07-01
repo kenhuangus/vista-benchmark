@@ -3,14 +3,14 @@
   "by_attack_asi": {
     "ASI01": 51,
     "ASI02": 33,
-    "ASI03": 64,
-    "ASI04": 16,
-    "ASI05": 16,
-    "ASI06": 50,
+    "ASI03": 48,
+    "ASI04": 32,
+    "ASI05": 32,
+    "ASI06": 34,
     "ASI07": 48,
     "ASI08": 32,
-    "ASI09": 64,
-    "ASI10": 16
+    "ASI09": 48,
+    "ASI10": 32
   },
   "by_difficulty_tier": {
     "curated": 6,
