@@ -47,9 +47,9 @@ _DEFAULT_JOURNEYS = [
     "journeys/research_synthesis_challenge.json",
 ]
 
-# Vertex defaults for Gemini models (overridable by env or CLI flags). The
-# service-account key lives OUTSIDE the repo so it can never be committed.
-_VERTEX_PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "agentready-0615152320")
+# Vertex project: set GOOGLE_CLOUD_PROJECT explicitly (no default — retired
+# agentready-0615152320 must not be used silently). SA key lives OUTSIDE repo.
+_VERTEX_PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "") or None
 _VERTEX_LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
 _VERTEX_KEY_WSL = os.environ.get("VERTEX_SA_KEY_WSL", "/mnt/c/Users/kenhu/.vista/vertex-sa.json")
 

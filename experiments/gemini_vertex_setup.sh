@@ -5,7 +5,7 @@
 # for individuals) tier, so Gemini is driven through Vertex AI on a GCP project
 # instead. One-time prerequisites, done with Windows gcloud (owner of the project):
 #
-#   PROJECT=agentready-0615152320
+#   PROJECT=<your-gcp-project>   # agentready-0615152320 retired 2026-11-16
 #   gcloud iam service-accounts create vista-vertex --project=$PROJECT
 #   gcloud projects add-iam-policy-binding $PROJECT \
 #       --member="serviceAccount:vista-vertex@$PROJECT.iam.gserviceaccount.com" \
